@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# -*- encoding: utf-8 -*-
+# coding: utf-8
 
 # Copyright 2011-2017, Nigel Small
 #
@@ -21,7 +21,7 @@ try:
 except ImportError:
     from distutils.core import setup, find_packages
 
-from n4 import __version__
+from n4.meta import __version__
 
 
 packages = find_packages(exclude=("test",))
@@ -35,11 +35,11 @@ package_metadata = {
     "url": None,
     "entry_points": {
         "console_scripts": [
-            "n4 = n4:main",
+            "n4 = n4.__main__:main",
         ],
     },
     "packages": packages,
-    "py_modules": ["n4"],
+    "py_modules": [],
     "install_requires": [
         "click",
         "neo4j-driver>=1.3.0",
