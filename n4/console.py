@@ -16,9 +16,10 @@
 # limitations under the License.
 
 
-from __future__ import print_function
+from __future__ import division, print_function
 
 from os.path import expanduser
+from time import perf_counter
 
 from neo4j.v1 import GraphDatabase, ServiceUnavailable, CypherError
 
@@ -34,10 +35,12 @@ from pygments.token import Token
 from .meta import __version__
 
 
+EOL = u"\r\n"
 HISTORY_FILE = expanduser("~/.n4_history")
 STYLE = style_from_dict({
     Token.Border: "#808080",
     Token.Error: "#ffff00",
+    Token.Metadata: "#00ffff",
 })
 
 
@@ -57,12 +60,12 @@ class Console(object):
         if source == "//":
             print_tokens([
                 (Token.Border, u"--------->--------->--------->--------->--------->------[<Esc><Enter>]--"),
-                (Token, '\n'),
+                (Token, EOL),
             ], style=STYLE)
             source = self.read_block()
             print_tokens([
                 (Token.Border, u"------------------------------------------------------------------------"),
-                (Token, '\n'),
+                (Token, EOL),
             ], style=STYLE)
         return source
 
@@ -75,8 +78,23 @@ class Console(object):
     def execute_cypher(self, source):
         with self.driver.session() as session:
             result = session.run(source)
-            for record in result:
-                print(record)
+            count, time = self.print_result(result)
+            self.print_result_summary(count, time, result.summary())
+
+    def print_result(self, result):
+        count = 0
+        t0 = perf_counter()
+        print_tokens([(Token.Metadata, "\t".join(result.keys())), (Token, EOL)], style=STYLE)
+        for count, record in enumerate(result):
+            print("\t".join(map(str, record.values())))
+        return count, perf_counter() - t0
+
+    def print_result_summary(self, count, time, summary):
+        server_address = "{}:{}".format(*summary.server.address)
+        print_tokens([
+            (Token.Metadata, u"({} record{} from {} in {:.3f}s)".format(count, "" if count == 1 else "s", server_address, time)),
+            (Token, EOL),
+        ], style=STYLE)
 
     def execute_command(self, source):
         if source == "/?":
