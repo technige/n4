@@ -54,6 +54,7 @@ class Console(object):
             "history": self.history,
             "lexer": PygmentsLexer(CypherLexer),
         }
+        self.style = STYLE
 
     def read(self):
         source = self.read_line().lstrip()
@@ -61,12 +62,12 @@ class Console(object):
             print_tokens([
                 (Token.Border, u"--------->--------->--------->--------->--------->------[<Esc><Enter>]--"),
                 (Token, EOL),
-            ], style=STYLE)
+            ], style=self.style)
             source = self.read_block()
             print_tokens([
                 (Token.Border, u"------------------------------------------------------------------------"),
                 (Token, EOL),
-            ], style=STYLE)
+            ], style=self.style)
         return source
 
     def read_line(self):
@@ -82,19 +83,17 @@ class Console(object):
             self.print_result_summary(count, time, result.summary())
 
     def print_result(self, result):
-        count = 0
+        last_index = -1
         t0 = perf_counter()
-        print_tokens([(Token.Metadata, "\t".join(result.keys())), (Token, EOL)], style=STYLE)
-        for count, record in enumerate(result):
+        self.print_metadata("\t".join(result.keys()))
+        for last_index, record in enumerate(result):
             print("\t".join(map(str, record.values())))
-        return count, perf_counter() - t0
+        return last_index + 1, perf_counter() - t0
 
     def print_result_summary(self, count, time, summary):
         server_address = "{}:{}".format(*summary.server.address)
-        print_tokens([
-            (Token.Metadata, u"({} record{} from {} in {:.3f}s)".format(count, "" if count == 1 else "s", server_address, time)),
-            (Token, EOL),
-        ], style=STYLE)
+        self.print_metadata(u"({} record{} from {} in {:.3f}s)".format(
+            count, "" if count == 1 else "s", server_address, time))
 
     def execute_command(self, source):
         if source == "/?":
@@ -112,7 +111,7 @@ class Console(object):
                 return 0
             if source.startswith("/"):
                 self.execute_command(source)
-            else:
+            elif source:
                 try:
                     self.execute_cypher(source)
                 except CypherError as error:
@@ -120,5 +119,8 @@ class Console(object):
                 except ServiceUnavailable:
                     return 1
 
+    def print_metadata(self, message):
+        print_tokens([(Token.Metadata, message), (Token, EOL)], style=self.style)
+
     def print_error(self, message):
-        print_tokens([(Token.Error, message), (Token, "\n")], style=STYLE)
+        print_tokens([(Token.Error, message), (Token, EOL)], style=self.style)
