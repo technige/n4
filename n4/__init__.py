@@ -16,5 +16,4 @@
 # limitations under the License.
 
 
-from .console import Console
 from .meta import *
