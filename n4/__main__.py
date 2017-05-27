@@ -18,10 +18,13 @@
 
 from os import getenv
 
+import click
+
 from .console import Console
 
 
-def main():
+@click.command()
+def repl():
     scheme = "bolt"
     host = "localhost"
     port = 7687
@@ -34,4 +37,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    repl()

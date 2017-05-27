@@ -35,7 +35,7 @@ package_metadata = {
     "url": None,
     "entry_points": {
         "console_scripts": [
-            "n4 = n4.__main__:main",
+            "n4 = n4.__main__:repl",
         ],
     },
     "packages": packages,

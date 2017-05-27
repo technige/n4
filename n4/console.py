@@ -23,25 +23,19 @@ from time import perf_counter
 
 from neo4j.v1 import GraphDatabase, ServiceUnavailable, CypherError
 
+import click
+
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.layout.lexers import PygmentsLexer
-from prompt_toolkit.shortcuts import print_tokens
-from prompt_toolkit.styles import style_from_dict
 
 from pygments.lexers.graph import CypherLexer
-from pygments.token import Token
 
 from .meta import __version__
 
 
 EOL = u"\r\n"
 HISTORY_FILE = expanduser("~/.n4_history")
-STYLE = style_from_dict({
-    Token.Border: "#808080",
-    Token.Error: "#ffff00",
-    Token.Metadata: "#00ffff",
-})
 WELCOME = """\
 N4 v{} -- Console for Neo4j
 Connected to {{}}
@@ -61,7 +55,6 @@ class Console(object):
             "history": self.history,
             "lexer": PygmentsLexer(CypherLexer),
         }
-        self.style = STYLE
         print(WELCOME.format(uri))
 
     def read(self):
@@ -85,15 +78,15 @@ class Console(object):
     def print_result(self, result):
         last_index = -1
         t0 = perf_counter()
-        self.print_metadata("\t".join(result.keys()))
+        click.secho("\t".join(result.keys()), fg="cyan")
         for last_index, record in enumerate(result):
             print("\t".join(map(str, record.values())))
         return last_index + 1, perf_counter() - t0
 
     def print_result_summary(self, count, time, summary):
         server_address = "{}:{}".format(*summary.server.address)
-        self.print_metadata(u"({} record{} from {} in {:.3f}s)".format(
-            count, "" if count == 1 else "s", server_address, time))
+        click.secho(u"({} record{} from {} in {:.3f}s)".format(
+            count, "" if count == 1 else "s", server_address, time), fg="cyan")
 
     def execute_command(self, source):
         if source == "/?":
@@ -101,7 +94,7 @@ class Console(object):
         elif source == "/x":
             exit(0)
         else:
-            self.print_error("Unknown command: " + source)
+            click.secho("Unknown command: " + source, fg="yellow")
 
     def loop(self):
         while True:
@@ -115,12 +108,6 @@ class Console(object):
                 try:
                     self.execute_cypher(source)
                 except CypherError as error:
-                    self.print_error(error.message)
+                    click.secho(error.message, fg="yellow")
                 except ServiceUnavailable:
                     return 1
-
-    def print_metadata(self, message):
-        print_tokens([(Token.Metadata, message), (Token, EOL)], style=self.style)
-
-    def print_error(self, message):
-        print_tokens([(Token.Error, message), (Token, EOL)], style=self.style)
