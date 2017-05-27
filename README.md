@@ -1,11 +1,10 @@
-N4: Cypher Console for Neo4j
-============================
+# N4: Cypher Console for Neo4j
 
 N4 is an interactive Cypher environment for use with Neo4j.
 
 
-Installation
-------------
+## Installation
+To install N4, simply run:
 ```
 pip install n4
 ```
@@ -25,6 +24,6 @@ TODO (autocommit)
 
 Console Commands
 ----------------
-//  Enter multiline editing mode (to run, press [Esc][Enter])
-/?  Help
-/x  Exit
+- `//`  to enter multiline mode (press \[Esc\]\[Enter\] to run)
+- `/?`  for help
+- `/x`  to exit

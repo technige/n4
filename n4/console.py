@@ -42,12 +42,19 @@ STYLE = style_from_dict({
     Token.Error: "#ffff00",
     Token.Metadata: "#00ffff",
 })
+WELCOME = """\
+N4 v{} -- Console for Neo4j
+Connected to {{}}
+
+//  to enter multiline mode (press [Esc][Enter] to run)
+/?  for help
+/x  to exit
+""".format(__version__)
 
 
 class Console(object):
 
     def __init__(self, uri, auth):
-        print("N4 v{}".format(__version__))
         self.driver = GraphDatabase.driver(uri, auth=auth)
         self.history = FileHistory(HISTORY_FILE)
         self.prompt_args = {
@@ -55,19 +62,12 @@ class Console(object):
             "lexer": PygmentsLexer(CypherLexer),
         }
         self.style = STYLE
+        print(WELCOME.format(uri))
 
     def read(self):
         source = self.read_line().lstrip()
         if source == "//":
-            print_tokens([
-                (Token.Border, u"--------->--------->--------->--------->--------->------[<Esc><Enter>]--"),
-                (Token, EOL),
-            ], style=self.style)
             source = self.read_block()
-            print_tokens([
-                (Token.Border, u"------------------------------------------------------------------------"),
-                (Token, EOL),
-            ], style=self.style)
         return source
 
     def read_line(self):
