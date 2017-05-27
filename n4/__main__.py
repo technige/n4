@@ -29,9 +29,16 @@ DEFAULT_NEO4J_PASSWORD = "password"
 
 
 @click.command()
+@click.option("-U", "--uri", default=getenv("NEO4J_URI", DEFAULT_NEO4J_URI))
 @click.option("-u", "--user", default=getenv("NEO4J_USER", DEFAULT_NEO4J_USER))
 @click.option("-p", "--password", default=getenv("NEO4J_PASSWORD", DEFAULT_NEO4J_PASSWORD))
-@click.argument("uri", default=getenv("NEO4J_URI", DEFAULT_NEO4J_URI))
-def repl(uri, user, password):
-    console = Console(uri, auth=(user, password))
-    exit(console.loop())
+@click.option("-v", "--verbose", is_flag=True, default=False)
+@click.argument("statement", default="")
+def repl(statement, uri, user, password, verbose):
+    console = Console(uri, auth=(user, password), verbose=verbose)
+    if statement:
+        console.run_cypher(statement)
+        exit_status = 0
+    else:
+        exit_status = console.loop()
+    exit(exit_status)

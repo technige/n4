@@ -107,8 +107,9 @@ class Console(object):
 
     result_format = TSV
     multiline = False
+    watcher = None
 
-    def __init__(self, uri, auth):
+    def __init__(self, uri, auth, verbose=False):
         self.commands = {
 
             "//": self.set_multiline,
@@ -128,19 +129,23 @@ class Console(object):
             "history": self.history,
             "lexer": PygmentsLexer(CypherLexer),
         }
-        print(WELCOME.format(uri))
+        self.uri = uri
+        if verbose:
+            from .watcher import watch
+            self.watcher = watch("neo4j.bolt")
 
     def loop(self):
+        print(WELCOME.format(self.uri))
         while True:
             try:
                 source = self.read().lstrip()
             except EOFError:
                 return 0
             if source.startswith("/"):
-                self.execute_command(source)
+                self.run_command(source)
             elif source:
                 try:
-                    self.execute_cypher(source)
+                    self.run_cypher(source)
                 except CypherError as error:
                     if error.classification == "ClientError":
                         colour = "yellow"
@@ -161,11 +166,11 @@ class Console(object):
         else:
             return prompt(u"> ", **self.prompt_args)
 
-    def execute_cypher(self, source):
+    def run_cypher(self, source):
         with self.driver.session() as session:
             self.result_format(session.run(source)).print_result()
 
-    def execute_command(self, source):
+    def run_command(self, source):
         assert source
         terms = shlex.split(source)
         command_name = terms[0]
