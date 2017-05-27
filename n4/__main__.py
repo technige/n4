@@ -23,18 +23,15 @@ import click
 from .console import Console
 
 
+DEFAULT_NEO4J_URI = "bolt://localhost:7687"
+DEFAULT_NEO4J_USER = "neo4j"
+DEFAULT_NEO4J_PASSWORD = "password"
+
+
 @click.command()
-def repl():
-    scheme = "bolt"
-    host = "localhost"
-    port = 7687
-    uri = getenv("NEO4J_URI", "%s://%s:%d" % (scheme, host, port))
-    user = getenv("NEO4J_USER", "neo4j")
-    password = getenv("NEO4J_PASSWORD", "password")
-    auth = (user, password)
-    console = Console(uri, auth=auth)
+@click.option("-u", "--user", default=getenv("NEO4J_USER", DEFAULT_NEO4J_USER))
+@click.option("-p", "--password", default=getenv("NEO4J_PASSWORD", DEFAULT_NEO4J_PASSWORD))
+@click.argument("uri", default=getenv("NEO4J_URI", DEFAULT_NEO4J_URI))
+def repl(uri, user, password):
+    console = Console(uri, auth=(user, password))
     exit(console.loop())
-
-
-if __name__ == "__main__":
-    repl()

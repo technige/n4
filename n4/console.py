@@ -18,6 +18,7 @@
 
 from __future__ import division, print_function
 
+import shlex
 from os.path import expanduser
 from time import perf_counter
 
@@ -34,7 +35,17 @@ from pygments.lexers.graph import CypherLexer
 from .meta import __version__
 
 
-EOL = u"\r\n"
+HELP = """\
+N4 is an interactive Cypher environment for use with Neo4j.
+
+Type Cypher at the prompt and press [Enter] to run.
+
+//  to enter multiline mode (press [Esc][Enter] to run)
+/?  for help
+/x  to exit
+
+Report bugs to n4@nige.tech\
+"""
 HISTORY_FILE = expanduser("~/.n4_history")
 WELCOME = """\
 N4 v{} -- Console for Neo4j
@@ -46,9 +57,60 @@ Connected to {{}}
 """.format(__version__)
 
 
+class ResultFormat(object):
+
+    count = 0
+    time = 0.0
+
+    def __init__(self, result):
+        self.result = result
+
+    def print_record(self, record):
+        raise NotImplementedError()
+
+    def print_result_summary(self):
+        summary = self.result.summary()
+        server_address = "{}:{}".format(*summary.server.address)
+        click.secho(u"({} record{} from {} in {:.3f}s)".format(
+            self.count, "" if self.count == 1 else "s", server_address, self.time), fg="cyan", err=True)
+
+
+class TSV(ResultFormat):
+
+    def print_result(self):
+        last_index = -1
+        t0 = perf_counter()
+        keys = self.result.keys()
+        if keys:
+            click.secho("\t".join(keys), fg="cyan")
+            for last_index, record in enumerate(self.result):
+                self.print_record(record)
+        self.count, self.time = last_index + 1, perf_counter() - t0
+        self.print_result_summary()
+
+    def print_record(self, record):
+        click.echo("\t".join(map(str, record.values())))
+
+
 class Console(object):
 
+    result_format = TSV
+    multiline = False
+
     def __init__(self, uri, auth):
+        self.commands = {
+
+            "//": self.set_multiline,
+            "/multiline": self.set_multiline,
+
+            "/?": self.help,
+            "/h": self.help,
+            "/help": self.help,
+
+            "/x": self.exit,
+            "/exit": self.exit,
+
+        }
         self.driver = GraphDatabase.driver(uri, auth=auth)
         self.history = FileHistory(HISTORY_FILE)
         self.prompt_args = {
@@ -57,49 +119,10 @@ class Console(object):
         }
         print(WELCOME.format(uri))
 
-    def read(self):
-        source = self.read_line().lstrip()
-        if source == "//":
-            source = self.read_block()
-        return source
-
-    def read_line(self):
-        return prompt(u"> ", **self.prompt_args)
-
-    def read_block(self):
-        return prompt(u"", multiline=True, **self.prompt_args)
-
-    def execute_cypher(self, source):
-        with self.driver.session() as session:
-            result = session.run(source)
-            count, time = self.print_result(result)
-            self.print_result_summary(count, time, result.summary())
-
-    def print_result(self, result):
-        last_index = -1
-        t0 = perf_counter()
-        click.secho("\t".join(result.keys()), fg="cyan")
-        for last_index, record in enumerate(result):
-            print("\t".join(map(str, record.values())))
-        return last_index + 1, perf_counter() - t0
-
-    def print_result_summary(self, count, time, summary):
-        server_address = "{}:{}".format(*summary.server.address)
-        click.secho(u"({} record{} from {} in {:.3f}s)".format(
-            count, "" if count == 1 else "s", server_address, time), fg="cyan", err=True)
-
-    def execute_command(self, source):
-        if source == "/?":
-            print("HELP!!")
-        elif source == "/x":
-            exit(0)
-        else:
-            click.secho("Unknown command: " + source, fg="yellow", err=True)
-
     def loop(self):
         while True:
             try:
-                source = self.read()
+                source = self.read().lstrip()
             except EOFError:
                 return 0
             if source.startswith("/"):
@@ -108,6 +131,47 @@ class Console(object):
                 try:
                     self.execute_cypher(source)
                 except CypherError as error:
-                    click.secho(error.message, fg="yellow", err=True)
+                    if error.classification == "ClientError":
+                        colour = "yellow"
+                    elif error.classification == "DatabaseError":
+                        colour = "red"
+                    elif error.classification == "TransientError":
+                        colour = "magenta"
+                    else:
+                        colour = "yellow"
+                    click.secho("{}: {}".format(error.title, error.message), fg=colour, err=True)
                 except ServiceUnavailable:
                     return 1
+
+    def read(self):
+        if self.multiline:
+            self.multiline = False
+            return prompt(u"", multiline=True, **self.prompt_args)
+        else:
+            return prompt(u"> ", **self.prompt_args)
+
+    def execute_cypher(self, source):
+        with self.driver.session() as session:
+            self.result_format(session.run(source)).print_result()
+
+    def execute_command(self, source):
+        assert source
+        terms = shlex.split(source)
+        command_name = terms[0]
+        try:
+            command = self.commands[command_name]
+        except KeyError:
+            click.secho("Unknown command: " + command_name, fg="yellow", err=True)
+        else:
+            command(terms)
+
+    def set_multiline(self, args):
+        self.multiline = True
+
+    @classmethod
+    def help(cls, args):
+        print(HELP)
+
+    @classmethod
+    def exit(cls, args):
+        exit(0)
