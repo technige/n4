@@ -86,7 +86,7 @@ class Console(object):
     def print_result_summary(self, count, time, summary):
         server_address = "{}:{}".format(*summary.server.address)
         click.secho(u"({} record{} from {} in {:.3f}s)".format(
-            count, "" if count == 1 else "s", server_address, time), fg="cyan")
+            count, "" if count == 1 else "s", server_address, time), fg="cyan", err=True)
 
     def execute_command(self, source):
         if source == "/?":
@@ -94,7 +94,7 @@ class Console(object):
         elif source == "/x":
             exit(0)
         else:
-            click.secho("Unknown command: " + source, fg="yellow")
+            click.secho("Unknown command: " + source, fg="yellow", err=True)
 
     def loop(self):
         while True:
@@ -108,6 +108,6 @@ class Console(object):
                 try:
                     self.execute_cypher(source)
                 except CypherError as error:
-                    click.secho(error.message, fg="yellow")
+                    click.secho(error.message, fg="yellow", err=True)
                 except ServiceUnavailable:
                     return 1
