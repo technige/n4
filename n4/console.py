@@ -32,6 +32,7 @@ from prompt_toolkit.layout.lexers import PygmentsLexer
 
 from pygments.lexers.graph import CypherLexer
 
+from n4.cypher import cypher_str
 from .meta import __version__
 
 
@@ -89,7 +90,17 @@ class TSV(ResultFormat):
         self.print_result_summary()
 
     def print_record(self, record):
-        click.echo("\t".join(map(str, record.values())))
+        for i, value in enumerate(record.values()):
+            if i > 0:
+                click.echo("\t", nl=False)
+            if value is None:
+                colour = "black"
+                bold = True
+            else:
+                colour = "reset"
+                bold = False
+            click.secho(cypher_str(value), fg=colour, bold=bold, nl=False)
+        click.echo()
 
 
 class Console(object):
