@@ -20,19 +20,15 @@ from __future__ import division, print_function
 
 import shlex
 from os.path import expanduser
-from time import perf_counter
-
-from neo4j.v1 import GraphDatabase, ServiceUnavailable, CypherError
 
 import click
-
+from neo4j.v1 import GraphDatabase, ServiceUnavailable, CypherError
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.layout.lexers import PygmentsLexer
-
 from pygments.lexers.graph import CypherLexer
 
-from n4.cypher import cypher_str
+from .data import SeparatedValues
 from .meta import __version__
 
 
@@ -58,54 +54,8 @@ Connected to {{}}
 """.format(__version__)
 
 
-class ResultFormat(object):
-
-    count = 0
-    time = 0.0
-
-    def __init__(self, result):
-        self.result = result
-
-    def print_record(self, record):
-        raise NotImplementedError()
-
-    def print_result_summary(self):
-        summary = self.result.summary()
-        server_address = "{}:{}".format(*summary.server.address)
-        click.secho(u"({} record{} from {} in {:.3f}s)".format(
-            self.count, "" if self.count == 1 else "s", server_address, self.time), fg="cyan", err=True)
-
-
-class TSV(ResultFormat):
-
-    def print_result(self):
-        last_index = -1
-        t0 = perf_counter()
-        keys = self.result.keys()
-        if keys:
-            click.secho("\t".join(keys), fg="cyan")
-            for last_index, record in enumerate(self.result):
-                self.print_record(record)
-        self.count, self.time = last_index + 1, perf_counter() - t0
-        self.print_result_summary()
-
-    def print_record(self, record):
-        for i, value in enumerate(record.values()):
-            if i > 0:
-                click.echo("\t", nl=False)
-            if value is None:
-                colour = "black"
-                bold = True
-            else:
-                colour = "reset"
-                bold = False
-            click.secho(cypher_str(value), fg=colour, bold=bold, nl=False)
-        click.echo()
-
-
 class Console(object):
 
-    result_format = TSV
     multiline = False
     watcher = None
 
@@ -129,6 +79,7 @@ class Console(object):
             "history": self.history,
             "lexer": PygmentsLexer(CypherLexer),
         }
+        self.data_writer = SeparatedValues(field_separator="\t", record_separator="\r\n")
         self.uri = uri
         if verbose:
             from .watcher import watch
@@ -168,7 +119,7 @@ class Console(object):
 
     def run_cypher(self, source):
         with self.driver.session() as session:
-            self.result_format(session.run(source)).print_result()
+            self.data_writer.write_result(session.run(source))
 
     def run_command(self, source):
         assert source
