@@ -37,7 +37,13 @@ class DataInterchangeFormat(object):
 
 class SeparatedValues(DataInterchangeFormat):
 
-    def __init__(self, field_separator="\t", record_separator="\r\n"):
+    styles = {
+        "NoneType": {"fg": "black", "bold": True},
+        "Summary": {"fg": "cyan"},
+    }
+
+    def __init__(self, headers=1, field_separator="\t", record_separator="\r\n"):
+        self.headers = headers
         self.field_separator = field_separator
         self.record_separator = record_separator
 
@@ -46,15 +52,17 @@ class SeparatedValues(DataInterchangeFormat):
         t0 = perf_counter()
         keys = result.keys()
         if keys:
-            click.secho(self.field_separator.join(keys), nl=False, fg="cyan")
-            click.echo(self.record_separator, nl=False)
+            if self.headers:
+                click.secho(self.field_separator.join(keys), nl=False, fg="cyan")
+                click.echo(self.record_separator, nl=False)
             for last_index, record in enumerate(result):
                 self.write_record(record)
         count, time = last_index + 1, perf_counter() - t0
         summary = result.summary()
         server_address = "{}:{}".format(*summary.server.address)
         click.secho(u"({} record{} from {} in {:.3f}s)".format(
-            count, "" if count == 1 else "s", server_address, time), err=True, fg="cyan")
+            count, "" if count == 1 else "s", server_address, time),
+            err=True, **self.styles["Summary"])
 
     def write_record(self, record):
         for i, value in enumerate(record.values()):
@@ -64,14 +72,8 @@ class SeparatedValues(DataInterchangeFormat):
         click.echo(self.record_separator, nl=False)
 
     def write_value(self, value):
-        if value is None:
-            colour = {
-                "fg": "black",
-                "bold": True,
-            }
-        else:
-            colour = {
-                "fg": "reset",
-                "bold": False,
-            }
-        click.secho(cypher_str(value), nl=False, **colour)
+        try:
+            style = self.styles[type(value).__name__]
+        except KeyError:
+            style = {"fg": "reset", "bold": False}
+        click.secho(cypher_str(value), nl=False, **style)
