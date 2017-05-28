@@ -16,7 +16,7 @@
 # limitations under the License.
 
 
-from time import perf_counter
+from timeit import default_timer as timer
 
 import click
 
@@ -49,7 +49,7 @@ class SeparatedValues(DataInterchangeFormat):
 
     def write_result(self, result):
         last_index = -1
-        t0 = perf_counter()
+        t0 = timer()
         keys = result.keys()
         if keys:
             if self.headers:
@@ -57,7 +57,7 @@ class SeparatedValues(DataInterchangeFormat):
                 click.echo(self.record_separator, nl=False)
             for last_index, record in enumerate(result):
                 self.write_record(record)
-        count, time = last_index + 1, perf_counter() - t0
+        count, time = last_index + 1, timer() - t0
         summary = result.summary()
         server_address = "{}:{}".format(*summary.server.address)
         click.secho(u"({} record{} from {} in {:.3f}s)".format(
