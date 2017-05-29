@@ -20,6 +20,7 @@ from __future__ import division, print_function
 
 import shlex
 from os.path import expanduser
+from timeit import default_timer as timer
 
 import click
 from neo4j.v1 import GraphDatabase, ServiceUnavailable, CypherError
@@ -119,7 +120,19 @@ class Console(object):
 
     def run_cypher(self, source):
         with self.driver.session() as session:
-            self.data_writer.write_result(session.run(source))
+            t0 = timer()
+            result = session.run(source)
+            total = 0
+            page = -1
+            while page != 0:
+                page = self.data_writer.write_result(result)
+                total += page
+            summary = result.summary()
+            t1 = timer() - t0
+            server_address = "{}:{}".format(*summary.server.address)
+            click.secho(u"({} record{} from {} in {:.3f}s)".format(
+                total, "" if total == 1 else "s", server_address, t1),
+                err=True, fg="cyan")
 
     def run_command(self, source):
         assert source

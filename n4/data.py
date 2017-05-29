@@ -25,7 +25,7 @@ from .cypher import cypher_str
 
 class DataInterchangeFormat(object):
 
-    def write_result(self, result):
+    def write_result(self, result, limit=0):
         raise NotImplementedError()
 
     def write_record(self, record):
@@ -39,7 +39,6 @@ class SeparatedValues(DataInterchangeFormat):
 
     styles = {
         "NoneType": {"fg": "black", "bold": True},
-        "Summary": {"fg": "cyan"},
     }
 
     def __init__(self, headers=1, field_separator="\t", record_separator="\r\n"):
@@ -47,22 +46,18 @@ class SeparatedValues(DataInterchangeFormat):
         self.field_separator = field_separator
         self.record_separator = record_separator
 
-    def write_result(self, result):
-        last_index = -1
-        t0 = timer()
+    def write_result(self, result, limit=0):
+        count = 0
         keys = result.keys()
         if keys:
-            if self.headers:
-                click.secho(self.field_separator.join(keys), nl=False, fg="cyan")
-                click.echo(self.record_separator, nl=False)
-            for last_index, record in enumerate(result):
+            for count, record in enumerate(result, start=1):
+                if count == 1 and self.headers:
+                    click.secho(self.field_separator.join(keys), nl=False, fg="cyan")
+                    click.echo(self.record_separator, nl=False)
                 self.write_record(record)
-        count, time = last_index + 1, timer() - t0
-        summary = result.summary()
-        server_address = "{}:{}".format(*summary.server.address)
-        click.secho(u"({} record{} from {} in {:.3f}s)".format(
-            count, "" if count == 1 else "s", server_address, time),
-            err=True, **self.styles["Summary"])
+                if count == limit:
+                    break
+        return count
 
     def write_record(self, record):
         for i, value in enumerate(record.values()):
@@ -77,3 +72,28 @@ class SeparatedValues(DataInterchangeFormat):
         except KeyError:
             style = {"fg": "reset", "bold": False}
         click.secho(cypher_str(value), nl=False, **style)
+
+
+class TabularValues(DataInterchangeFormat):
+
+    def __init__(self):
+        pass
+
+    def write_result(self, result, limit=0):
+        keys = result.keys()
+        widths = list(map(len, keys))
+        data = []
+        for record in result:
+            fields = []
+            for i, value in enumerate(record):
+                encoded_value = cypher_str(value)
+                widths[i] = max(widths[i], len(encoded_value))
+                fields.append(encoded_value)
+            data.append(fields)
+        # TODO
+
+    def write_record(self, record):
+        pass
+
+    def write_value(self, value):
+        pass

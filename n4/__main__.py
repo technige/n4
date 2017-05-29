@@ -42,3 +42,7 @@ def repl(statement, uri, user, password, verbose):
     else:
         exit_status = console.loop()
     exit(exit_status)
+
+
+if __name__ == "__main__":
+    repl()
