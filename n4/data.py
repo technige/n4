@@ -118,6 +118,8 @@ class TabularValues(DataInterchangeFormat):
     def encode_value(cls, value):
         if value is None:
             return "", str.ljust
+        elif isinstance(value, bool):
+            return cypher_str(value), str.ljust
         elif isinstance(value, (int, float)):
             return cypher_str(value), str.rjust
         else:
