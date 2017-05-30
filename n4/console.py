@@ -97,6 +97,8 @@ class Console(object):
         while True:
             try:
                 source = self.read().lstrip()
+            except KeyboardInterrupt:
+                continue
             except EOFError:
                 return 0
             if source.startswith("/"):
