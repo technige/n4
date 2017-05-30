@@ -29,7 +29,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.layout.lexers import PygmentsLexer
 from pygments.lexers.graph import CypherLexer
 
-from .data import SeparatedValues
+from .data import SeparatedValues, TabularValues
 from .meta import __version__
 
 
@@ -71,7 +71,8 @@ class Console(object):
             "history": self.history,
             "lexer": PygmentsLexer(CypherLexer),
         }
-        self.data_writer = SeparatedValues(field_separator="\t", record_separator="\r\n")
+        # self.data_writer = SeparatedValues(field_separator="\t", record_separator="\r\n")
+        self.data_writer = TabularValues()
         if verbose:
             from .watcher import watch
             self.watcher = watch("neo4j.bolt")
@@ -128,10 +129,11 @@ class Console(object):
             t0 = timer()
             result = session.run(source)
             total = 0
-            page = -1
-            while page != 0:
-                page = self.data_writer.write_result(result)
-                total += page
+            if result.keys():
+                more = True
+                while more:
+                    total += self.data_writer.write_result(result)
+                    more = result.peek() is not None
             summary = result.summary()
             t1 = timer() - t0
             server_address = "{}:{}".format(*summary.server.address)

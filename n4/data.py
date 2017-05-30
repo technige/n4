@@ -16,16 +16,14 @@
 # limitations under the License.
 
 
-from timeit import default_timer as timer
-
 import click
 
-from .cypher import cypher_str
+from n4.cypher import cypher_str
 
 
 class DataInterchangeFormat(object):
 
-    def write_result(self, result, limit=0):
+    def write_result(self, result):
         raise NotImplementedError()
 
     def write_record(self, record):
@@ -46,17 +44,13 @@ class SeparatedValues(DataInterchangeFormat):
         self.field_separator = field_separator
         self.record_separator = record_separator
 
-    def write_result(self, result, limit=0):
+    def write_result(self, result):
         count = 0
-        keys = result.keys()
-        if keys:
-            for count, record in enumerate(result, start=1):
-                if count == 1 and self.headers:
-                    click.secho(self.field_separator.join(keys), nl=False, fg="cyan")
-                    click.echo(self.record_separator, nl=False)
-                self.write_record(record)
-                if count == limit:
-                    break
+        if self.headers:
+            click.secho(self.field_separator.join(result.keys()), nl=False, fg="cyan")
+            click.echo(self.record_separator, nl=False)
+        for count, record in enumerate(result, start=1):
+            self.write_record(record)
         return count
 
     def write_record(self, record):
@@ -76,24 +70,55 @@ class SeparatedValues(DataInterchangeFormat):
 
 class TabularValues(DataInterchangeFormat):
 
-    def __init__(self):
-        pass
+    def __init__(self, headers=1, limit=50):
+        self.headers = headers
+        self.limit = limit
 
-    def write_result(self, result, limit=0):
+    def write_result(self, result):
         keys = result.keys()
         widths = list(map(len, keys))
         data = []
-        for record in result:
+        data_aligns = []
+        for count, record in enumerate(result, start=1):
             fields = []
-            for i, value in enumerate(record):
-                encoded_value = cypher_str(value)
+            field_aligns = []
+            for i, value in enumerate(record.values()):
+                encoded_value, align = self.encode_value(value)
                 widths[i] = max(widths[i], len(encoded_value))
                 fields.append(encoded_value)
+                field_aligns.append(align)
             data.append(fields)
-        # TODO
+            data_aligns.append(field_aligns)
+            if count == self.limit:
+                break
+
+        if self.headers:
+            click.echo(" ", nl=False)
+            click.secho(" | ".join(key.ljust(widths[i]) for i, key in enumerate(keys)), nl=False, fg="cyan")
+            click.echo(" \r\n", nl=False)
+            click.secho("-".join("-" * (widths[i] + 2) for i, key in enumerate(keys)), nl=False, fg="cyan")
+            click.echo("\r\n", nl=False)
+        for y, values in enumerate(data):
+            self.write_record(data_aligns[y][x](value, widths[x]) for x, value in enumerate(values))
+
+        return len(data)
 
     def write_record(self, record):
-        pass
+        click.echo(" ", nl=False)
+        for i, value in enumerate(record):
+            if i > 0:
+                click.echo(" | ", nl=False)
+            self.write_value(value)
+        click.echo(" \r\n", nl=False)
 
     def write_value(self, value):
-        pass
+        click.echo(value, nl=False)
+
+    @classmethod
+    def encode_value(cls, value):
+        if value is None:
+            return "", str.ljust
+        elif isinstance(value, (int, float)):
+            return cypher_str(value), str.rjust
+        else:
+            return cypher_str(value), str.ljust
