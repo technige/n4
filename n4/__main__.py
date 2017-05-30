@@ -20,8 +20,7 @@ from os import getenv
 
 import click
 
-from .console import Console
-
+from .console import Console, ConsoleError
 
 DEFAULT_NEO4J_URI = "bolt://localhost:7687"
 DEFAULT_NEO4J_USER = "neo4j"
@@ -35,12 +34,16 @@ DEFAULT_NEO4J_PASSWORD = "password"
 @click.option("-v", "--verbose", is_flag=True, default=False)
 @click.argument("statement", default="")
 def repl(statement, uri, user, password, verbose):
-    console = Console(uri, auth=(user, password), verbose=verbose)
-    if statement:
-        console.run_cypher(statement)
-        exit_status = 0
-    else:
-        exit_status = console.loop()
+    try:
+        console = Console(uri, auth=(user, password), verbose=verbose)
+        if statement:
+            console.run_cypher(statement)
+            exit_status = 0
+        else:
+            exit_status = console.loop()
+    except ConsoleError as e:
+        click.secho(e.args[0], err=True, fg="yellow")
+        exit_status = 1
     exit(exit_status)
 
 

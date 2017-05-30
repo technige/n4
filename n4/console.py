@@ -36,7 +36,7 @@ from .meta import __version__
 HELP = """\
 N4 is an interactive Cypher environment for use with Neo4j.
 
-Type Cypher at the prompt and press [Enter] to run.
+Type Cypher statements at the prompt and press [Enter] to run.
 
 //  to enter multiline mode (press [Esc][Enter] to run)
 /?  for help
@@ -61,6 +61,21 @@ class Console(object):
     watcher = None
 
     def __init__(self, uri, auth, verbose=False):
+        try:
+            self.driver = GraphDatabase.driver(uri, auth=auth)
+        except ServiceUnavailable:
+            raise ConsoleError("Could not connect to {}".format(uri))
+        self.uri = uri
+        self.history = FileHistory(HISTORY_FILE)
+        self.prompt_args = {
+            "history": self.history,
+            "lexer": PygmentsLexer(CypherLexer),
+        }
+        self.data_writer = SeparatedValues(field_separator="\t", record_separator="\r\n")
+        if verbose:
+            from .watcher import watch
+            self.watcher = watch("neo4j.bolt")
+
         self.commands = {
 
             "//": self.set_multiline,
@@ -75,16 +90,6 @@ class Console(object):
 
         }
         self.driver = GraphDatabase.driver(uri, auth=auth)
-        self.history = FileHistory(HISTORY_FILE)
-        self.prompt_args = {
-            "history": self.history,
-            "lexer": PygmentsLexer(CypherLexer),
-        }
-        self.data_writer = SeparatedValues(field_separator="\t", record_separator="\r\n")
-        self.uri = uri
-        if verbose:
-            from .watcher import watch
-            self.watcher = watch("neo4j.bolt")
 
     def loop(self):
         print(WELCOME.format(self.uri))
@@ -155,3 +160,8 @@ class Console(object):
     @classmethod
     def exit(cls, args):
         exit(0)
+
+
+class ConsoleError(Exception):
+
+    pass
