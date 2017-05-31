@@ -24,6 +24,9 @@ TODO (autocommit)
 
 Console Commands
 ----------------
-- `//`  to enter multiline mode (press \[Esc\]\[Enter\] to run)
-- `/?`  for help
-- `/x`  to exit
+- `//`      to enter multiline mode (press \[Esc\]\[Enter\] to run)
+- `/?`      for help
+- `/csv`    format output as comma-separated values
+- `/table`  format output in a table
+- `/tsv`    format output as tab-separated values
+- `/x`      to exit

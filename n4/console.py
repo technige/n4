@@ -29,7 +29,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.layout.lexers import PygmentsLexer
 from pygments.lexers.graph import CypherLexer
 
-from .data import SeparatedValues, TabularValues
+from .data import CommaSeparatedValues, TabSeparatedValues, DataTable
 from .meta import __version__
 
 
@@ -41,6 +41,10 @@ Type Cypher statements at the prompt and press [Enter] to run.
 //  to enter multiline mode (press [Esc][Enter] to run)
 /?  for help
 /x  to exit
+
+/csv    format output as comma-separated values
+/table  format output in a table
+/tsv    format output as tab-separated values
 
 Report bugs to n4@nige.tech\
 """
@@ -72,7 +76,7 @@ class Console(object):
             "lexer": PygmentsLexer(CypherLexer),
         }
         # self.data_writer = SeparatedValues(field_separator="\t", record_separator="\r\n")
-        self.data_writer = TabularValues()
+        self.data_writer = DataTable()
         if verbose:
             from .watcher import watch
             self.watcher = watch("neo4j.bolt")
@@ -88,6 +92,10 @@ class Console(object):
 
             "/x": self.exit,
             "/exit": self.exit,
+
+            "/csv": self.set_csv_data_writer,
+            "/table": self.set_table_data_writer,
+            "/tsv": self.set_tsv_data_writer,
 
         }
         self.driver = GraphDatabase.driver(uri, auth=auth)
@@ -152,18 +160,33 @@ class Console(object):
         except KeyError:
             click.secho("Unknown command: " + command_name, fg="yellow", err=True)
         else:
-            command(terms)
+            kwargs = {}
+            for term in terms[1:]:
+                key, _, value = term.partition("=")
+                kwargs[key] = value
+            command(**kwargs)
 
-    def set_multiline(self, args):
+    def set_multiline(self, **kwargs):
         self.multiline = True
 
     @classmethod
-    def help(cls, args):
+    def help(cls, **kwargs):
         print(HELP)
 
     @classmethod
-    def exit(cls, args):
+    def exit(cls, **kwargs):
         exit(0)
+
+    def set_csv_data_writer(self, **kwargs):
+        self.data_writer = CommaSeparatedValues(header=kwargs.get("header", 1))
+
+    def set_table_data_writer(self, **kwargs):
+        self.data_writer = DataTable(header=kwargs.get("header", 1),
+                                     page_limit=kwargs.get("page_limit", 50),
+                                     page_gap=kwargs.get("page_gap", 1))
+
+    def set_tsv_data_writer(self, **kwargs):
+        self.data_writer = TabSeparatedValues(header=kwargs.get("header", 1))
 
 
 class ConsoleError(Exception):
