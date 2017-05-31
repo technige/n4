@@ -25,8 +25,10 @@ try:
     unicode
 except NameError:
     string = str
+    unicode = str
 else:
     string = (str, unicode)
+    unicode = unicode
 
 
 class DataInterchangeFormat(object):
@@ -151,10 +153,10 @@ class DataTable(DataInterchangeFormat):
     @classmethod
     def encode_value(cls, value):
         if value is None:
-            return "", str.ljust
+            return u"", unicode.ljust
         elif isinstance(value, bool):
-            return cypher_str(value), str.ljust
+            return cypher_str(value), unicode.ljust
         elif isinstance(value, (int, float)):
-            return cypher_str(value), str.rjust
+            return cypher_str(value), unicode.rjust
         else:
-            return cypher_str(value), str.ljust
+            return cypher_str(value), unicode.ljust

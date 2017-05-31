@@ -19,6 +19,6 @@
 from os.path import expanduser
 
 
-__version__ = "1.0.0a8"
+__version__ = "1.0.0a9"
 
 history_file = expanduser("~/.n4_history")
