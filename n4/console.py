@@ -38,13 +38,15 @@ N4 is an interactive Cypher environment for use with Neo4j.
 
 Type Cypher statements at the prompt and press [Enter] to run.
 
-//  to enter multiline mode (press [Esc][Enter] to run)
-/?  for help
-/x  to exit
+General commands:
+  //  to enter multiline mode (press [Esc][Enter] to run)
+  /?  for help
+  /x  to exit
 
-/csv    format output as comma-separated values
-/table  format output in a table
-/tsv    format output as tab-separated values
+Formatting commands:
+  /csv    format output as comma-separated values
+  /table  format output in a table
+  /tsv    format output as tab-separated values
 
 Report bugs to n4@nige.tech\
 """
