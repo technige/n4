@@ -16,19 +16,29 @@
 # limitations under the License.
 
 
+import sys
+
 import click
 
 from n4.cypher import cypher_repr, cypher_str
+from n4.table import Table
 
-
-try:
-    unicode
-except NameError:
-    string = str
-    unicode = str
+if sys.version_info >= (3,):
+    BOOLEAN = bool
+    INTEGER = int
+    FLOAT = float
+    BYTES = (bytes, bytearray)
+    STRING = str
+    LIST = list
+    MAP = dict
 else:
-    string = (str, unicode)
-    unicode = unicode
+    BOOLEAN = bool
+    INTEGER = (int, long)
+    FLOAT = float
+    BYTES = bytearray
+    STRING = unicode
+    LIST = list
+    MAP = dict
 
 
 class DataInterchangeFormat(object):
@@ -36,25 +46,18 @@ class DataInterchangeFormat(object):
     def write_result(self, result):
         raise NotImplementedError()
 
-    def write_record(self, record):
-        raise NotImplementedError()
-
-    def write_value(self, value, **style):
-        raise NotImplementedError()
-
 
 class SeparatedValues(DataInterchangeFormat):
 
-    def __init__(self, field_separator, record_separator="\r\n", header=1):
+    def __init__(self, field_separator, header=1):
         self.field_separator = field_separator
-        self.record_separator = record_separator
         self.header = header
 
     def write_result(self, result):
         count = 0
         if self.header:
             click.secho(self.field_separator.join(result.keys()), nl=False, fg="cyan")
-            click.echo(self.record_separator, nl=False)
+            click.echo(u"\r\n", nl=False)
         for count, record in enumerate(result, start=1):
             self.write_record(record)
         return count
@@ -64,7 +67,7 @@ class SeparatedValues(DataInterchangeFormat):
             if i > 0:
                 click.echo(self.field_separator, nl=False)
             self.write_value(value)
-        click.echo(self.record_separator, nl=False)
+        click.echo(u"\r\n", nl=False)
 
     def write_value(self, value, **style):
         click.secho(cypher_str(value), nl=False, **style)
@@ -72,28 +75,28 @@ class SeparatedValues(DataInterchangeFormat):
 
 class CommaSeparatedValues(SeparatedValues):
 
-    def __init__(self, header=1, record_separator="\r\n"):
-        super(CommaSeparatedValues, self).__init__(",", record_separator, header)
+    def __init__(self, header=1):
+        super(CommaSeparatedValues, self).__init__(",", header)
 
     def write_value(self, value, **style):
-        if isinstance(value, string):
-            if ',' in value or '"' in value or "\r" in value or "\n" in value:
-                escaped_value = '"' + value.replace('"', '""') + '"'
+        if isinstance(value, STRING):
+            if u',' in value or u'"' in value or u"\r" in value or u"\n" in value:
+                escaped_value = u'"' + value.replace(u'"', u'""') + u'"'
                 click.secho(escaped_value, nl=False, **style)
             else:
-                click.secho(cypher_repr(value, quote='"'), nl=False, **style)
+                click.secho(cypher_repr(value, quote=u'"'), nl=False, **style)
         else:
             click.secho(cypher_str(value), nl=False, **style)
 
 
 class TabSeparatedValues(SeparatedValues):
 
-    def __init__(self, header=1, record_separator="\r\n"):
-        super(TabSeparatedValues, self).__init__("\t", record_separator, header)
+    def __init__(self, header=1):
+        super(TabSeparatedValues, self).__init__(u"\t", header)
 
     def write_value(self, value, **style):
-        if isinstance(value, string):
-            click.secho(cypher_repr(value, quote='"'), nl=False, **style)
+        if isinstance(value, STRING):
+            click.secho(cypher_repr(value, quote=u'"'), nl=False, **style)
         else:
             click.secho(cypher_str(value), nl=False, **style)
 
@@ -104,59 +107,17 @@ class DataTable(DataInterchangeFormat):
         self.header = header
         self.page_limit = page_limit
         self.page_gap = page_gap
-        self.metadata_style = {
+        self.header_style = {
             "fg": "cyan",
         }
 
     def write_result(self, result):
         keys = result.keys()
-        widths = list(map(len, keys))
-        data = []
-        data_aligns = []
+        table = Table(keys)
         for count, record in enumerate(result, start=1):
-            fields = []
-            field_aligns = []
-            for i, value in enumerate(record.values()):
-                encoded_value, align = self.encode_value(value)
-                widths[i] = max(widths[i], len(encoded_value))
-                fields.append(encoded_value)
-                field_aligns.append(align)
-            data.append(fields)
-            data_aligns.append(field_aligns)
+            table.append(record.values())
             if count == self.page_limit:
                 break
-
-        if self.header:
-            click.secho(" " + " | ".join(key.ljust(widths[i]) for i, key in enumerate(keys)) + " ",
-                        nl=False, **self.metadata_style)
-            click.echo("\r\n", nl=False)
-            click.secho("|".join("-" * (widths[i] + 2) for i, key in enumerate(keys)),
-                        nl=False, **self.metadata_style)
-            click.echo("\r\n", nl=False)
-        for y, values in enumerate(data):
-            self.write_record(data_aligns[y][x](value, widths[x]) for x, value in enumerate(values))
-
+        table.echo(header_style=self.header_style)
         click.echo("\r\n" * self.page_gap, nl=False)
-
-        return len(data)
-
-    def write_record(self, record):
-        for i, value in enumerate(record):
-            if i > 0:
-                click.secho("|", nl=False, **self.metadata_style)
-            self.write_value(value)
-        click.echo("\r\n", nl=False)
-
-    def write_value(self, value, **style):
-        click.secho(" {} ".format(value), nl=False, **style)
-
-    @classmethod
-    def encode_value(cls, value):
-        if value is None:
-            return u"", unicode.ljust
-        elif isinstance(value, bool):
-            return cypher_str(value), unicode.ljust
-        elif isinstance(value, (int, float)):
-            return cypher_str(value), unicode.rjust
-        else:
-            return cypher_str(value), unicode.ljust
+        return table.size()
