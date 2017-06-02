@@ -39,7 +39,7 @@ N4 is an interactive Cypher environment for use with Neo4j.
 Type Cypher statements at the prompt and press [Enter] to run.
 
 General commands:
-  //  to enter multiline mode (press [Esc][Enter] to run)
+  //  to enter multiline mode (press [Alt]+[Enter] to run)
   /?  for help
   /x  to exit
 
@@ -55,7 +55,7 @@ WELCOME = """\
 N4 v{} -- Console for Neo4j
 Connected to {{}}
 
-//  to enter multiline mode (press [Esc][Enter] to run)
+//  to enter multiline mode (press [Alt]+[Enter] to run)
 /?  for help
 /x  to exit
 """.format(__version__)
@@ -87,7 +87,6 @@ class Console(object):
         self.commands = {
 
             "//": self.set_multiline,
-            "/multiline": self.set_multiline,
 
             "/?": self.help,
             "/h": self.help,
