@@ -65,6 +65,7 @@ class Console(object):
 
     multiline = False
     watcher = None
+    statements = None
 
     def __init__(self, uri, auth, verbose=False):
         try:
@@ -115,7 +116,7 @@ class Console(object):
                 self.run_command(source)
             elif source:
                 try:
-                    self.run_cypher(source)
+                    self.run_cypher(source, {})
                 except CypherError as error:
                     if error.classification == "ClientError":
                         colour = "yellow"
@@ -133,13 +134,21 @@ class Console(object):
         if self.multiline:
             self.multiline = False
             return prompt(u"", multiline=True, **self.prompt_args)
+        elif self.statements is None:
+            return prompt(u"~> ", **self.prompt_args)
         else:
-            return prompt(u"> ", **self.prompt_args)
+            return prompt(u"{}> ".format(len(self.statements) + 1), **self.prompt_args)
 
-    def run_cypher(self, source):
+    def run_cypher(self, statement, parameters):
+        if self.statements is None:
+            self.run_autocommit_transaction(statement, parameters)
+        else:
+            self.statements.append((statement, parameters))
+
+    def run_autocommit_transaction(self, statement, parameters):
         with self.driver.session() as session:
             t0 = timer()
-            result = session.run(source)
+            result = session.run(statement, parameters)
             total = 0
             if result.keys():
                 more = True
