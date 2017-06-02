@@ -39,7 +39,7 @@ N4 is an interactive Cypher environment for use with Neo4j.
 Type Cypher statements at the prompt and press [Enter] to run.
 
 General commands:
-  //  to enter multiline mode (press [Alt]+[Enter] to run)
+  //  to enter multi-line mode (press [Alt]+[Enter] to run)
   /?  for help
   /x  to exit
 
@@ -55,7 +55,7 @@ WELCOME = """\
 N4 v{} -- Console for Neo4j
 Connected to {{}}
 
-//  to enter multiline mode (press [Alt]+[Enter] to run)
+//  to enter multi-line mode (press [Alt]+[Enter] to run)
 /?  for help
 /x  to exit
 """.format(__version__)
@@ -63,7 +63,7 @@ Connected to {{}}
 
 class Console(object):
 
-    multiline = False
+    multi_line = False
     watcher = None
     statements = None
 
@@ -78,7 +78,6 @@ class Console(object):
             "history": self.history,
             "lexer": PygmentsLexer(CypherLexer),
         }
-        # self.data_writer = SeparatedValues(field_separator="\t", record_separator="\r\n")
         self.data_writer = DataTable()
         if verbose:
             from .watcher import watch
@@ -86,7 +85,7 @@ class Console(object):
 
         self.commands = {
 
-            "//": self.set_multiline,
+            "//": self.set_multi_line,
 
             "/?": self.help,
             "/h": self.help,
@@ -130,8 +129,8 @@ class Console(object):
                     return 1
 
     def read(self):
-        if self.multiline:
-            self.multiline = False
+        if self.multi_line:
+            self.multi_line = False
             return prompt(u"", multiline=True, **self.prompt_args)
         elif self.statements is None:
             return prompt(u"~> ", **self.prompt_args)
@@ -176,12 +175,12 @@ class Console(object):
                 kwargs[key] = value
             command(**kwargs)
 
-    def set_multiline(self, **kwargs):
-        self.multiline = True
+    def set_multi_line(self, **kwargs):
+        self.multi_line = True
 
     @classmethod
     def help(cls, **kwargs):
-        print(HELP)
+        click.echo(HELP, err=True)
 
     @classmethod
     def exit(cls, **kwargs):
