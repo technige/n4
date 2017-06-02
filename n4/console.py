@@ -29,7 +29,7 @@ from prompt_toolkit.history import FileHistory
 from prompt_toolkit.layout.lexers import PygmentsLexer
 from pygments.lexers.graph import CypherLexer
 
-from .data import CommaSeparatedValues, TabSeparatedValues, DataTable
+from .data import TabularResultWriter, CSVResultWriter, TSVResultWriter
 from .meta import __version__
 
 
@@ -78,7 +78,7 @@ class Console(object):
             "history": self.history,
             "lexer": PygmentsLexer(CypherLexer),
         }
-        self.data_writer = DataTable()
+        self.result_writer = TabularResultWriter()
         if verbose:
             from .watcher import watch
             self.watcher = watch("neo4j.bolt")
@@ -94,9 +94,9 @@ class Console(object):
             "/x": self.exit,
             "/exit": self.exit,
 
-            "/csv": self.set_csv_data_writer,
-            "/table": self.set_table_data_writer,
-            "/tsv": self.set_tsv_data_writer,
+            "/csv": self.set_csv_result_writer,
+            "/table": self.set_tabular_result_writer,
+            "/tsv": self.set_tsv_result_writer,
 
         }
         self.driver = GraphDatabase.driver(uri, auth=auth)
@@ -149,9 +149,10 @@ class Console(object):
             result = session.run(statement, parameters)
             total = 0
             if result.keys():
+                self.result_writer.write_header(result)
                 more = True
                 while more:
-                    total += self.data_writer.write_result(result)
+                    total += self.result_writer.write(result, 50)
                     more = result.peek() is not None
             summary = result.summary()
             t1 = timer() - t0
@@ -186,16 +187,14 @@ class Console(object):
     def exit(cls, **kwargs):
         exit(0)
 
-    def set_csv_data_writer(self, **kwargs):
-        self.data_writer = CommaSeparatedValues(header=kwargs.get("header", 1))
+    def set_csv_result_writer(self, **kwargs):
+        self.result_writer = CSVResultWriter()
 
-    def set_table_data_writer(self, **kwargs):
-        self.data_writer = DataTable(header=kwargs.get("header", 1),
-                                     page_limit=kwargs.get("page_limit", 50),
-                                     page_gap=kwargs.get("page_gap", 1))
+    def set_tabular_result_writer(self, **kwargs):
+        self.result_writer = TabularResultWriter()
 
-    def set_tsv_data_writer(self, **kwargs):
-        self.data_writer = TabSeparatedValues(header=kwargs.get("header", 1))
+    def set_tsv_result_writer(self, **kwargs):
+        self.result_writer = TSVResultWriter()
 
 
 class ConsoleError(Exception):
