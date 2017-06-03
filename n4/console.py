@@ -18,16 +18,19 @@
 
 from __future__ import division, print_function
 
+from datetime import datetime
 import shlex
 from os.path import expanduser
 from timeit import default_timer as timer
 
 import click
-from neo4j.v1 import GraphDatabase, ServiceUnavailable, CypherError
+from neo4j.v1 import GraphDatabase, ServiceUnavailable, CypherError, TransactionError
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.layout.lexers import PygmentsLexer
+from prompt_toolkit.styles import style_from_dict
 from pygments.lexers.graph import CypherLexer
+from pygments.token import Token
 
 from .data import TabularResultWriter, CSVResultWriter, TSVResultWriter
 from .meta import __version__
@@ -65,7 +68,6 @@ class Console(object):
 
     multi_line = False
     watcher = None
-    statements = None
 
     def __init__(self, uri, auth, verbose=False):
         try:
@@ -100,66 +102,124 @@ class Console(object):
 
         }
         self.driver = GraphDatabase.driver(uri, auth=auth)
+        self.session = None
+        self.tx = None
+        self.tx_counter = 0
 
     def loop(self):
-        print(WELCOME.format(self.uri))
+        click.echo(WELCOME.format(self.uri).rstrip(), err=True)
         while True:
             try:
-                source = self.read().lstrip()
+                source = self.read().strip()
             except KeyboardInterrupt:
                 continue
             except EOFError:
                 return 0
-            if source.startswith("/"):
-                self.run_command(source)
-            elif source:
-                try:
-                    self.run_cypher(source, {})
-                except CypherError as error:
-                    if error.classification == "ClientError":
-                        colour = "yellow"
-                    elif error.classification == "DatabaseError":
-                        colour = "red"
-                    elif error.classification == "TransientError":
-                        colour = "magenta"
-                    else:
-                        colour = "yellow"
-                    click.secho("{}: {}".format(error.title, error.message), fg=colour, err=True)
-                except ServiceUnavailable:
-                    return 1
+            try:
+                if not source:
+                    pass
+                elif source.startswith("/"):
+                    self.run_command(source)
+                elif source.upper() == "BEGIN":
+                    self.begin_transaction()
+                elif source.upper() == "COMMIT":
+                    self.commit_transaction()
+                elif source.upper() == "ROLLBACK":
+                    self.rollback_transaction()
+                elif self.tx is None:
+                    with self.driver.session() as session:
+                        self.run_cypher(session, source, {})
+                else:
+                    self.run_cypher(self.tx, source, {})
+                    self.tx_counter += 1
+            except CypherError as error:
+                if error.classification == "ClientError":
+                    colour = "yellow"
+                elif error.classification == "DatabaseError":
+                    colour = "red"
+                elif error.classification == "TransientError":
+                    colour = "magenta"
+                else:
+                    colour = "yellow"
+                click.secho("{}: {}".format(error.title, error.message), fg=colour, err=True)
+            except TransactionError:
+                click.secho("Transaction error", fg="yellow", err=True)
+            except ServiceUnavailable:
+                return 1
+
+    def rollback_transaction(self):
+        if self.session:
+            try:
+                self.session.rollback_transaction()
+                click.secho(u"(Transaction rolled back at {})".format(datetime.now()), err=True, fg="cyan")
+            finally:
+                self.tx = None
+                self.tx_counter = 0
+                self.session.close()
+                self.session = None
+        else:
+            click.secho(u"No current transaction", err=True, fg="yellow")
+
+    def commit_transaction(self):
+        if self.session:
+            try:
+                self.session.commit_transaction()
+                click.secho(u"(Transaction committed at {})".format(datetime.now()), err=True, fg="cyan")
+            finally:
+                self.tx = None
+                self.tx_counter = 0
+                self.session.close()
+                self.session = None
+        else:
+            click.secho(u"No current transaction", err=True, fg="yellow")
+
+    def begin_transaction(self):
+        if self.tx is None:
+            self.session = self.driver.session()
+            self.tx = self.session.begin_transaction()
+            self.tx_counter = 1
+            click.secho(u"(Transaction began at {})".format(datetime.now()), err=True, fg="cyan")
+        else:
+            click.secho(u"Transaction already open", err=True, fg="yellow")
 
     def read(self):
         if self.multi_line:
             self.multi_line = False
             return prompt(u"", multiline=True, **self.prompt_args)
-        elif self.statements is None:
-            return prompt(u"~> ", **self.prompt_args)
-        else:
-            return prompt(u"{}> ".format(len(self.statements) + 1), **self.prompt_args)
 
-    def run_cypher(self, statement, parameters):
-        if self.statements is None:
-            self.run_autocommit_transaction(statement, parameters)
-        else:
-            self.statements.append((statement, parameters))
+        example_style = style_from_dict({
+            Token.Prompt: "#ansiblue bold",
+            Token.TxCounter: "#ansired bold",
+        })
 
-    def run_autocommit_transaction(self, statement, parameters):
-        with self.driver.session() as session:
-            t0 = timer()
-            result = session.run(statement, parameters)
-            total = 0
-            if result.keys():
-                self.result_writer.write_header(result)
-                more = True
-                while more:
-                    total += self.result_writer.write(result, 50)
-                    more = result.peek() is not None
-            summary = result.summary()
-            t1 = timer() - t0
-            server_address = "{}:{}".format(*summary.server.address)
-            click.secho(u"({} record{} from {} in {:.3f}s)".format(
-                total, "" if total == 1 else "s", server_address, t1),
-                err=True, fg="cyan")
+        def get_prompt_tokens(cli):
+            tokens = []
+            if self.tx is None:
+                tokens.append((Token.Prompt, "\n-> "))
+            else:
+                tokens.append((Token.Prompt, "\n-("))
+                tokens.append((Token.TxCounter, "{}".format(self.tx_counter)))
+                tokens.append((Token.Prompt, ")-> "))
+            return tokens
+
+        return prompt(get_prompt_tokens=get_prompt_tokens, style=example_style, **self.prompt_args)
+
+    def run_cypher(self, context, statement, parameters):
+        t0 = timer()
+        result = context.run(statement, parameters)
+        total = 0
+        if result.keys():
+            self.result_writer.write_header(result)
+            more = True
+            while more:
+                total += self.result_writer.write(result, 50)
+                more = result.peek() is not None
+        summary = result.summary()
+        t1 = timer() - t0
+        server_address = "{}:{}".format(*summary.server.address)
+        click.secho(u"({} record{} from {} in {:.3f}s)".format(
+            total, "" if total == 1 else "s", server_address, t1),
+            err=True, fg="cyan")
 
     def run_command(self, source):
         assert source
