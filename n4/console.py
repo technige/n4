@@ -74,9 +74,9 @@ class Console(object):
     multi_line = False
     watcher = None
 
-    def __init__(self, uri, auth, verbose=False):
+    def __init__(self, uri, auth, secure=True, verbose=False):
         try:
-            self.driver = GraphDatabase.driver(uri, auth=auth)
+            self.driver = GraphDatabase.driver(uri, auth=auth, encrypted=secure)
         except ServiceUnavailable:
             raise ConsoleError("Could not connect to {}".format(uri))
         self.uri = uri
@@ -109,7 +109,6 @@ class Console(object):
             "/kernel": self.kernel,
 
         }
-        self.driver = GraphDatabase.driver(uri, auth=auth)
         self.session = None
         self.tx = None
         self.tx_counter = 0

@@ -31,12 +31,13 @@ DEFAULT_NEO4J_PASSWORD = "password"
 @click.option("-U", "--uri", default=getenv("NEO4J_URI", DEFAULT_NEO4J_URI))
 @click.option("-u", "--user", default=getenv("NEO4J_USER", DEFAULT_NEO4J_USER))
 @click.option("-p", "--password", default=getenv("NEO4J_PASSWORD", DEFAULT_NEO4J_PASSWORD))
+@click.option("-i", "--insecure", is_flag=True, default=False)
 @click.option("-f", "--format", type=click.Choice(["csv", "tsv", "table"]))
 @click.option("-v", "--verbose", is_flag=True, default=False)
 @click.argument("statement", default="")
-def repl(statement, uri, user, password, format, verbose):
+def repl(statement, uri, user, password, insecure, format, verbose):
     try:
-        console = Console(uri, auth=(user, password), verbose=verbose)
+        console = Console(uri, auth=(user, password), secure=not insecure, verbose=verbose)
 
         if format == "csv":
             console.set_csv_result_writer()
