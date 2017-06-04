@@ -47,7 +47,8 @@ def repl(statement, uri, user, password, insecure, format, verbose):
             console.set_tabular_result_writer()
 
         if statement:
-            console.run_cypher(statement, {})
+            with console.driver.session() as session:
+                console.run_cypher(session, statement, {})
             exit_status = 0
         else:
             exit_status = console.loop()
