@@ -32,6 +32,7 @@ from prompt_toolkit.styles import style_from_dict
 from pygments.lexers.graph import CypherLexer
 from pygments.token import Token
 
+from n4.table import Table
 from .data import TabularResultWriter, CSVResultWriter, TSVResultWriter
 from .meta import __version__
 
@@ -50,6 +51,10 @@ Formatting commands:
   /csv    format output as comma-separated values
   /table  format output in a table
   /tsv    format output as tab-separated values
+
+Information commands:
+  /config   show Neo4j server configuration
+  /kernel   show Neo4j kernel information
 
 Report bugs to n4@nige.tech\
 """
@@ -99,6 +104,9 @@ class Console(object):
             "/csv": self.set_csv_result_writer,
             "/table": self.set_tabular_result_writer,
             "/tsv": self.set_tsv_result_writer,
+
+            "/config": self.config,
+            "/kernel": self.kernel,
 
         }
         self.driver = GraphDatabase.driver(uri, auth=auth)
@@ -255,6 +263,39 @@ class Console(object):
 
     def set_tsv_result_writer(self, **kwargs):
         self.result_writer = TSVResultWriter()
+
+    def config(self, **kwargs):
+        with self.driver.session() as session:
+            result = session.run("CALL dbms.listConfig")
+            table = None
+            last_category = None
+            for record in result:
+                name = record["name"]
+                category, _, _ = name.partition(".")
+                if category != last_category:
+                    if table is not None:
+                        table.echo(header_style={"fg": "cyan"})
+                        click.echo()
+                    table = Table(["name", "value"], field_separator=u" = ", padding=0, auto_align=False, header=0)
+                table.append((name, record["value"]))
+                last_category = category
+            table.echo(header_style={"fg": "cyan"})
+
+    def kernel(self, **kwargs):
+        with self.driver.session() as session:
+            result = session.run("CALL dbms.queryJmx", {"query": "org.neo4j:instance=kernel#0,name=Kernel"})
+            table = Table(["key", "value"], field_separator=u" = ", padding=0, auto_align=False, header=0)
+            for record in result:
+                attributes = record["attributes"]
+                for key, value_dict in sorted(attributes.items()):
+                    value = value_dict["value"]
+                    if key.endswith("Date") or key.endswith("Time"):
+                        try:
+                            value = datetime.fromtimestamp(value / 1000).isoformat(" ")
+                        except:
+                            pass
+                    table.append((key, value))
+            table.echo(header_style={"fg": "cyan"})
 
 
 class ConsoleError(Exception):

@@ -62,7 +62,7 @@ class TableValueSystem(object):
 
 class Table(object):
 
-    def __init__(self, keys, padding=1, field_separator=u"|"):
+    def __init__(self, keys, padding=1, field_separator=u"|", auto_align=True, header=1):
         self._value_system = TableValueSystem()
         self._keys = keys
         self._widths = []
@@ -71,7 +71,8 @@ class Table(object):
             self._widths.append(width)
         self._padding = padding
         self._field_separator = field_separator
-        self._header = None
+        self._auto_align = auto_align
+        self._header = header
         self._rows = []
 
     @property
@@ -86,29 +87,32 @@ class Table(object):
         return len(self._rows)
 
     def append(self, values):
-        row = TableRow(self, self._padding, self._field_separator)
+        row = TableRow(self, self._padding, self._field_separator, self._auto_align)
         for column, value in enumerate(values):
             row.put(column, value)
         self._rows.append(row)
 
     def echo(self, header_style):
-        header = TableRow(self, self._padding, self._field_separator)
-        for column, key in enumerate(self._keys):
-            header.put(column, key)
-        header.echo(**header_style)
-        click.secho(u"|".join(u"-" * (self._widths[i] + 2) for i, key in enumerate(self._keys)),
-                    nl=False)
-        click.echo(u"\r\n", nl=False)
+        if self._header:
+            header_row = TableRow(self, self._padding, self._field_separator, self._auto_align)
+            for column, key in enumerate(self._keys):
+                header_row.put(column, key)
+            header_row.echo(**header_style)
+            click.secho(self._field_separator.join(u"-" * (self._widths[i] + 2 * self._padding)
+                                                   for i, key in enumerate(self._keys)),
+                        nl=False)
+            click.echo(u"\r\n", nl=False)
         for row in self._rows:
             row.echo()
 
 
 class TableRow(object):
 
-    def __init__(self, table, padding=1, field_separator=u"|"):
+    def __init__(self, table, padding=1, field_separator=u"|", auto_align=True):
         self._table = table
         self._padding = padding
         self._field_separator = field_separator
+        self._auto_align = auto_align
         self._types = [None for _ in self._table.widths]
         self._lines = [[u"" for _ in self._table.widths]]
 
@@ -125,12 +129,16 @@ class TableRow(object):
     def echo(self, **style):
         padding = u" " * self._padding
         for line in self._lines:
+            last_column = len(line) - 1
             for column, text in enumerate(line):
                 if column > 0:
                     click.secho(self._field_separator, nl=False)
-                if self._types[column] == INTEGER or self._types[column] == FLOAT:
+                if self._auto_align and (self._types[column] == INTEGER or self._types[column] == FLOAT):
                     justified_text = text.rjust(self._table.widths[column])
                 else:
                     justified_text = text.ljust(self._table.widths[column])
-                click.secho(padding + justified_text + padding, nl=False, **style)
+                final_text = padding + justified_text + padding
+                if column == last_column:
+                    final_text = final_text.rstrip()
+                click.secho(final_text, nl=False, **style)
             click.echo(u"\r\n", nl=False)

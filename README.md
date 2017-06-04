@@ -32,3 +32,7 @@ Special console commands start with a slash character (`/`) and are used to acce
 - `/csv`    format output as comma-separated values
 - `/table`  format output in a table
 - `/tsv`    format output as tab-separated values
+
+### Information Commands
+- `/config` show Neo4j server configuration
+- `/kernel` show Neo4j kernel information
