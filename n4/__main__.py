@@ -27,32 +27,51 @@ DEFAULT_NEO4J_USER = "neo4j"
 DEFAULT_NEO4J_PASSWORD = "password"
 
 
-@click.command()
-@click.option("-U", "--uri", default=getenv("NEO4J_URI", DEFAULT_NEO4J_URI))
-@click.option("-u", "--user", default=getenv("NEO4J_USER", DEFAULT_NEO4J_USER))
-@click.option("-p", "--password", default=getenv("NEO4J_PASSWORD", DEFAULT_NEO4J_PASSWORD))
-@click.option("-i", "--insecure", is_flag=True, default=False)
-@click.option("-f", "--format", type=click.Choice(["csv", "tsv", "table"]))
-@click.option("-v", "--verbose", is_flag=True, default=False)
-@click.argument("statement", default="")
-def repl(statement, uri, user, password, insecure, format, verbose):
+@click.command(epilog="""\
+If STATEMENT arguments are provided, these are executed in
+order; if no STATEMENT arguments are provided, an interactive
+console is presented.
+
+Statements entered at the interactive prompt or as arguments
+can be regular Cypher, transaction control keywords or slash
+commands. For a handy Cypher reference, see:
+
+    https://neo4j.com/docs/cypher-refcard/current/
+
+Transactions can be used in two ways: interactively or as
+transaction functions. To manage an interactive transaction,
+use the transaction control keywords BEGIN, COMMIT and
+ROLLBACK.
+""")
+@click.option("-U", "--uri",
+              default=getenv("NEO4J_URI", DEFAULT_NEO4J_URI),
+              help="Set the connection URI.")
+@click.option("-u", "--user",
+              default=getenv("NEO4J_USER", DEFAULT_NEO4J_USER),
+              help="Set the user.")
+@click.option("-p", "--password",
+              default=getenv("NEO4J_PASSWORD", DEFAULT_NEO4J_PASSWORD),
+              help="Set the password.")
+@click.option("-i", "--insecure",
+              is_flag=True,
+              default=False,
+              help="Use unencrypted communication (no TLS).")
+@click.option("-v", "--verbose",
+              is_flag=True,
+              default=False,
+              help="Show low level communication detail.")
+@click.argument("statement", nargs=-1)
+def repl(statement, uri, user, password, insecure, verbose):
+    """ Cypher runner and interactive console for use with Neo4j.
+    """
     try:
         console = Console(uri, auth=(user, password), secure=not insecure, verbose=verbose)
-
-        if format == "csv":
-            console.set_csv_result_writer()
-        elif format == "tsv":
-            console.set_tsv_result_writer()
-        else:
-            console.set_tabular_result_writer()
-
         if statement:
-            with console.driver.session() as session:
-                console.run_cypher(session, statement, {})
+            for s in statement:
+                console.run(s)
             exit_status = 0
         else:
             exit_status = console.loop()
-
     except ConsoleError as e:
         click.secho(e.args[0], err=True, fg="yellow")
         exit_status = 1

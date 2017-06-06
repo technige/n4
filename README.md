@@ -12,15 +12,38 @@ pip install n4
 This installs an `n4` executable onto your path.
 
 
-## Connection
+## Usage
+```
+Usage: n4 [OPTIONS] [STATEMENT]...
+
+  Cypher runner and interactive console for use with Neo4j.
+
+  If STATEMENT arguments are provided, these are executed in order as if
+  entered at the interactive prompt. These arguments can include slash
+  commands. If no STATEMENT arguments are provided, an interactive console
+  is presented.
+
+Options:
+  -U, --uri TEXT       Set the connection URI.
+  -u, --user TEXT      Set the user.
+  -p, --password TEXT  Set the password.
+  -i, --insecure       Use unencrypted communication (no TLS).
+  -v, --verbose        Show low level communication detail.
+  --help               Show this message and exit.
+```
+
+
+### Command Line Options
 TODO
+
+### Slash Commands
 
 
 ## Running Cypher
 TODO (autocommit)
 
 
-## Console Commands
+## Slash Commands
 Special console commands start with a slash character (`/`) and are used to access functionality outside of direct Cypher execution.
 
 ### General Commands

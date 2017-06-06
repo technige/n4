@@ -74,6 +74,11 @@ class Console(object):
     multi_line = False
     watcher = None
 
+    tx_colour = "yellow"
+    err_colour = "reset"
+    meta_colour = "blue"
+    prompt_colour = "blue"
+
     def __init__(self, uri, auth, secure=True, verbose=False):
         try:
             self.driver = GraphDatabase.driver(uri, auth=auth, encrypted=secure)
@@ -123,71 +128,78 @@ class Console(object):
             except EOFError:
                 return 0
             try:
-                if not source:
-                    pass
-                elif source.startswith("/"):
-                    self.run_command(source)
-                elif source.upper() == "BEGIN":
-                    self.begin_transaction()
-                elif source.upper() == "COMMIT":
-                    self.commit_transaction()
-                elif source.upper() == "ROLLBACK":
-                    self.rollback_transaction()
-                elif self.tx is None:
-                    with self.driver.session() as session:
-                        self.run_cypher(session, source, {})
-                else:
-                    self.run_cypher(self.tx, source, {})
-                    self.tx_counter += 1
-            except CypherError as error:
-                if error.classification == "ClientError":
-                    colour = "yellow"
-                elif error.classification == "DatabaseError":
-                    colour = "red"
-                elif error.classification == "TransientError":
-                    colour = "magenta"
-                else:
-                    colour = "yellow"
-                click.secho("{}: {}".format(error.title, error.message), fg=colour, err=True)
-            except TransactionError:
-                click.secho("Transaction error", fg="yellow", err=True)
+                self.run(source)
             except ServiceUnavailable:
                 return 1
+
+    def run(self, source):
+        try:
+            if not source:
+                pass
+            elif source.startswith("/"):
+                self.run_command(source)
+            elif source.upper() == "BEGIN":
+                self.begin_transaction()
+            elif source.upper() == "COMMIT":
+                self.commit_transaction()
+            elif source.upper() == "ROLLBACK":
+                self.rollback_transaction()
+            elif self.tx is None:
+                with self.driver.session() as session:
+                    self.run_cypher(session, source, {})
+            else:
+                self.run_cypher(self.tx, source, {})
+                self.tx_counter += 1
+        except CypherError as error:
+            if error.classification == "ClientError":
+                pass
+            elif error.classification == "DatabaseError":
+                pass
+            elif error.classification == "TransientError":
+                pass
+            else:
+                pass
+            click.secho("{}: {}".format(error.title, error.message), err=True)
+        except TransactionError:
+            click.secho("Transaction error", err=True, fg=self.err_colour)
 
     def rollback_transaction(self):
         if self.session:
             try:
                 self.session.rollback_transaction()
-                click.secho(u"(Transaction rolled back at {})".format(datetime.now()), err=True, fg="cyan")
+                click.secho(u"(Transaction ROLLBACK at {})".format(datetime.now()),
+                            err=True, fg=self.tx_colour, bold=True)
             finally:
                 self.tx = None
                 self.tx_counter = 0
                 self.session.close()
                 self.session = None
         else:
-            click.secho(u"No current transaction", err=True, fg="yellow")
+            click.secho(u"No current transaction", err=True, fg=self.err_colour)
 
     def commit_transaction(self):
         if self.session:
             try:
                 self.session.commit_transaction()
-                click.secho(u"(Transaction committed at {})".format(datetime.now()), err=True, fg="cyan")
+                click.secho(u"(Transaction COMMIT at {})".format(datetime.now()),
+                            err=True, fg=self.tx_colour, bold=True)
             finally:
                 self.tx = None
                 self.tx_counter = 0
                 self.session.close()
                 self.session = None
         else:
-            click.secho(u"No current transaction", err=True, fg="yellow")
+            click.secho(u"No current transaction", err=True, fg=self.err_colour)
 
     def begin_transaction(self):
         if self.tx is None:
             self.session = self.driver.session()
             self.tx = self.session.begin_transaction()
             self.tx_counter = 1
-            click.secho(u"(Transaction began at {})".format(datetime.now()), err=True, fg="cyan")
+            click.secho(u"(Transaction BEGIN at {})".format(datetime.now()),
+                        err=True, fg=self.tx_colour, bold=True)
         else:
-            click.secho(u"Transaction already open", err=True, fg="yellow")
+            click.secho(u"Transaction already open", err=True, fg=self.err_colour)
 
     def read(self):
         if self.multi_line:
@@ -195,11 +207,11 @@ class Console(object):
             return prompt(u"", multiline=True, **self.prompt_args)
 
         example_style = style_from_dict({
-            Token.Prompt: "#ansiblue bold",
-            Token.TxCounter: "#ansired bold",
+            Token.Prompt: "#ansi{}".format(self.prompt_colour),
+            Token.TxCounter: "#ansi{} bold".format(self.tx_colour),
         })
 
-        def get_prompt_tokens(cli):
+        def get_prompt_tokens(_):
             tokens = []
             if self.tx is None:
                 tokens.append((Token.Prompt, "\n-> "))
@@ -223,10 +235,13 @@ class Console(object):
                 more = result.peek() is not None
         summary = result.summary()
         t1 = timer() - t0
-        server_address = "{}:{}".format(*summary.server.address)
+        if len(summary.server.address) == 4:  # IPv6
+            server_address = "[{}]:{}".format(*summary.server.address)
+        else:                                 # IPv4
+            server_address = "{}:{}".format(*summary.server.address)
         click.secho(u"({} record{} from {} in {:.3f}s)".format(
             total, "" if total == 1 else "s", server_address, t1),
-            err=True, fg="cyan")
+            err=True, fg=self.meta_colour, bold=True)
 
     def run_command(self, source):
         assert source
@@ -235,7 +250,7 @@ class Console(object):
         try:
             command = self.commands[command_name]
         except KeyError:
-            click.secho("Unknown command: " + command_name, fg="yellow", err=True)
+            click.secho("Unknown command: " + command_name, err=True, fg=self.err_colour)
         else:
             kwargs = {}
             for term in terms[1:]:
@@ -278,7 +293,7 @@ class Console(object):
                     table = Table(["name", "value"], field_separator=u" = ", padding=0, auto_align=False, header=0)
                 table.append((name, record["value"]))
                 last_category = category
-            table.echo(header_style={"fg": "cyan"})
+            table.echo(header_style={"fg": self.meta_colour})
 
     def kernel(self, **kwargs):
         with self.driver.session() as session:
@@ -294,7 +309,7 @@ class Console(object):
                         except:
                             pass
                     table.append((key, value))
-            table.echo(header_style={"fg": "cyan"})
+            table.echo(header_style={"fg": self.meta_colour})
 
 
 class ConsoleError(Exception):
