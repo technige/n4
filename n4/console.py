@@ -22,6 +22,7 @@ from datetime import datetime
 import shlex
 from os.path import expanduser
 from timeit import default_timer as timer
+from textwrap import dedent
 
 import click
 from neo4j.v1 import GraphDatabase, ServiceUnavailable, CypherError, TransactionError
@@ -34,39 +35,10 @@ from pygments.token import Token
 
 from n4.table import Table
 from .data import TabularResultWriter, CSVResultWriter, TSVResultWriter
-from .meta import __version__
+from .meta import title, description, quick_help, full_help
 
 
-HELP = """\
-N4 is an interactive Cypher environment for use with Neo4j.
-
-Type Cypher statements at the prompt and press [Enter] to run.
-
-General commands:
-  //  to enter multi-line mode (press [Alt]+[Enter] to run)
-  /?  for help
-  /x  to exit
-
-Formatting commands:
-  /csv    format output as comma-separated values
-  /table  format output in a table
-  /tsv    format output as tab-separated values
-
-Information commands:
-  /config   show Neo4j server configuration
-  /kernel   show Neo4j kernel information
-
-Report bugs to n4@nige.tech\
-"""
 HISTORY_FILE = expanduser("~/.n4_history")
-WELCOME = """\
-N4 v{} -- Console for Neo4j
-Connected to {{}}
-
-//  to enter multi-line mode (press [Alt]+[Enter] to run)
-/?  for help
-/x  to exit
-""".format(__version__)
 
 
 class Console(object):
@@ -119,7 +91,10 @@ class Console(object):
         self.tx_counter = 0
 
     def loop(self):
-        click.echo(WELCOME.format(self.uri).rstrip(), err=True)
+        click.echo(title, err=True)
+        click.echo("Connected to {}".format(self.uri).rstrip(), err=True)
+        click.echo(err=True)
+        click.echo(dedent(quick_help), err=True)
         while True:
             try:
                 source = self.read().strip()
@@ -263,7 +238,9 @@ class Console(object):
 
     @classmethod
     def help(cls, **kwargs):
-        click.echo(HELP, err=True)
+        click.echo(description, err=True)
+        click.echo(err=True)
+        click.echo(full_help.replace("\b\n", ""), err=True)
 
     @classmethod
     def exit(cls, **kwargs):

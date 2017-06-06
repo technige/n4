@@ -21,28 +21,14 @@ from os import getenv
 import click
 
 from .console import Console, ConsoleError
+from .meta import description, full_help
 
 DEFAULT_NEO4J_URI = "bolt://localhost:7687"
 DEFAULT_NEO4J_USER = "neo4j"
 DEFAULT_NEO4J_PASSWORD = "password"
 
 
-@click.command(epilog="""\
-If STATEMENT arguments are provided, these are executed in
-order; if no STATEMENT arguments are provided, an interactive
-console is presented.
-
-Statements entered at the interactive prompt or as arguments
-can be regular Cypher, transaction control keywords or slash
-commands. For a handy Cypher reference, see:
-
-    https://neo4j.com/docs/cypher-refcard/current/
-
-Transactions can be used in two ways: interactively or as
-transaction functions. To manage an interactive transaction,
-use the transaction control keywords BEGIN, COMMIT and
-ROLLBACK.
-""")
+@click.command(help=description, epilog=full_help)
 @click.option("-U", "--uri",
               default=getenv("NEO4J_URI", DEFAULT_NEO4J_URI),
               help="Set the connection URI.")
@@ -62,8 +48,6 @@ ROLLBACK.
               help="Show low level communication detail.")
 @click.argument("statement", nargs=-1)
 def repl(statement, uri, user, password, insecure, verbose):
-    """ Cypher runner and interactive console for use with Neo4j.
-    """
     try:
         console = Console(uri, auth=(user, password), secure=not insecure, verbose=verbose)
         if statement:

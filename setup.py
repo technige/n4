@@ -21,15 +21,15 @@ try:
 except ImportError:
     from distutils.core import setup, find_packages
 
-from n4.meta import __version__
+from n4.meta import __version__, description, full_help
 
 
 packages = find_packages(exclude=("test",))
 package_metadata = {
     "name": "n4",
     "version": __version__,
-    "description": "Cypher console for Neo4j",
-    "long_description": "",
+    "description": description,
+    "long_description": full_help.replace("\b\n", ""),
     "author": "Nigel Small <technige@nige.tech>",
     "author_email": "n4@nige.tech",
     "url": None,
@@ -41,14 +41,15 @@ package_metadata = {
     "packages": packages,
     "py_modules": [],
     "install_requires": [
-        "click",
+        "click>=2.0",
+        "colorama",
         "neo4j-driver>=1.3.0",
         "prompt_toolkit",
         "pygments>=2.0",
     ],
     "license": "Apache License, Version 2.0",
     "classifiers": [
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "Intended Audience :: Science/Research",
         "Intended Audience :: System Administrators",

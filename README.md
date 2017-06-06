@@ -1,9 +1,11 @@
-# N4: Cypher Console for Neo4j
+# N4
 
-N4 is an interactive Cypher environment for use with Neo4j.
+N4 is a Cypher runner and interactive console for Neo4j.
 
+## Usage
 
-## Installation
+### Installation
+
 To install N4, simply run:
 ```
 pip install n4
@@ -11,51 +13,41 @@ pip install n4
 
 This installs an `n4` executable onto your path.
 
-
-## Usage
+### Synopsis
 ```
-Usage: n4 [OPTIONS] [STATEMENT]...
-
-  Cypher runner and interactive console for use with Neo4j.
-
-  If STATEMENT arguments are provided, these are executed in order as if
-  entered at the interactive prompt. These arguments can include slash
-  commands. If no STATEMENT arguments are provided, an interactive console
-  is presented.
-
-Options:
-  -U, --uri TEXT       Set the connection URI.
-  -u, --user TEXT      Set the user.
-  -p, --password TEXT  Set the password.
-  -i, --insecure       Use unencrypted communication (no TLS).
-  -v, --verbose        Show low level communication detail.
-  --help               Show this message and exit.
+n4 [OPTIONS] [STATEMENT]...
 ```
 
+### Options
+- `-U`, `--uri` `TEXT`       Set the connection URI.
+- `-u`, `--user` `TEXT`      Set the user.
+- `-p`, `--password` `TEXT`  Set the password.
+- `-i`, `--insecure`       Use unencrypted communication (no TLS).
+- `-v`, `--verbose`        Show low level communication detail.
+- `--help`               Show this message and exit.
 
-### Command Line Options
-TODO
+### Description
+If command line arguments are provided, these are executed in order as
+statements. If no arguments are provided, an interactive console is
+presented. Statements entered at the interactive prompt or as arguments
+can be regular Cypher, transaction control keywords or slash commands.
 
-### Slash Commands
+For a handy Cypher reference, see the [Cypher reference card](https://neo4j.com/docs/cypher-refcard/current/).
 
+Transactions can be managed interactively. To do this, use the transaction
+control keywords `BEGIN`, `COMMIT` and `ROLLBACK`.
 
-## Running Cypher
-TODO (autocommit)
+Slash commands provide access to supplementary functionality.
 
-
-## Slash Commands
-Special console commands start with a slash character (`/`) and are used to access functionality outside of direct Cypher execution.
-
-### General Commands
 - `//`      to enter multiline mode (press `[Esc][Enter]` to run)
 - `/?`      for help
 - `/x`      to exit
 
-### Formatting Commands
+### Formatting commands
 - `/csv`    format output as comma-separated values
 - `/table`  format output in a table
 - `/tsv`    format output as tab-separated values
 
-### Information Commands
+### Information commands
 - `/config` show Neo4j server configuration
 - `/kernel` show Neo4j kernel information
