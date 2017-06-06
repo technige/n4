@@ -54,8 +54,8 @@ class Console(object):
     def __init__(self, uri, auth, secure=True, verbose=False):
         try:
             self.driver = GraphDatabase.driver(uri, auth=auth, encrypted=secure)
-        except ServiceUnavailable:
-            raise ConsoleError("Could not connect to {}".format(uri))
+        except ServiceUnavailable as error:
+            raise ConsoleError("Could not connect to {} ({})".format(uri, error))
         self.uri = uri
         self.history = FileHistory(HISTORY_FILE)
         self.prompt_args = {
