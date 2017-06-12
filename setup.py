@@ -36,6 +36,7 @@ package_metadata = {
     "entry_points": {
         "console_scripts": [
             "n4 = n4.__main__:repl",
+            "n4a = n4.auth:main",
         ],
     },
     "packages": packages,
