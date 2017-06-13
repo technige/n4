@@ -43,8 +43,8 @@ class AuthUser(object):
     digest = None
 
     @classmethod
-    def create(cls, user, password):
-        inst = cls(user, b"SHA-256", None, None)
+    def create(cls, user_name, password):
+        inst = cls(user_name, b"SHA-256", None, None)
         inst.set_password(password)
         return inst
 
@@ -62,7 +62,7 @@ class AuthUser(object):
 
     def __init__(self, name, hash_algorithm, digest, salt):
         assert hash_algorithm == b"SHA-256"
-        self.name = name
+        self.name = bstr(name)
         self.hash_algorithm = hash_algorithm
         self.digest = digest
         self.salt = salt
@@ -101,43 +101,22 @@ class AuthFile(object):
             pass
 
     def append(self, user_name, password):
-        user_name = bstr(user_name)
-        users = {user.name: user for user in iter(self)}
-        if user_name in users:
-            raise ValueError(u"User {} already exists".format(user_name.decode("utf-8")))
-        with open(self.name, "ab") as f:
-            f.write(AuthUser.create(user_name, password).dump())
-            f.write(b"\r\n")
+        line = AuthUser.create(user_name, password).dump()
+        if self.name == "-":
+            print(line.decode("utf-8"))
+        else:
+            with open(self.name, "ab") as f:
+                f.write(line)
+                f.write(b"\r\n")
 
 
-@click.group()
-@click.pass_context
-@click.option('--debug/--no-debug', default=False)
-def cli(ctx, debug):
-    ctx.obj['DEBUG'] = debug
-
-
-@cli.command()
-@click.pass_context
+@click.command()
 @click.argument("auth_file")
-def ls(ctx, auth_file):
-    for user in AuthFile(auth_file):
-        click.echo(user.name)
-
-
-@cli.command()
-@click.pass_context
+@click.argument("user_name")
 @click.password_option()
-@click.argument("auth_file")
-@click.argument("user")
-def add(ctx, auth_file, user, password):
-    af = AuthFile(auth_file)
-    af.append(user, password)
-
-
-def main():
+def main(auth_file, user_name, password):
     try:
-        cli(obj={})
+        AuthFile(auth_file).append(user_name, password)
     except Exception as error:
         click.secho(error.args[0], err=True)
         exit(1)
