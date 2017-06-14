@@ -29,8 +29,9 @@ from neo4j.v1 import GraphDatabase, ServiceUnavailable, CypherError, Transaction
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.layout.lexers import PygmentsLexer
-from prompt_toolkit.styles import style_from_dict
+from prompt_toolkit.styles import style_from_pygments
 from pygments.lexers.graph import CypherLexer
+from pygments.styles.default import DefaultStyle
 from pygments.token import Token
 
 from n4.table import Table
@@ -61,6 +62,10 @@ class Console(object):
         self.prompt_args = {
             "history": self.history,
             "lexer": PygmentsLexer(CypherLexer),
+            "style": style_from_pygments(DefaultStyle, {
+                Token.Prompt: "#ansi{}".format(self.prompt_colour),
+                Token.TxCounter: "#ansi{} bold".format(self.tx_colour),
+            })
         }
         self.result_writer = TabularResultWriter()
         if verbose:
@@ -181,11 +186,6 @@ class Console(object):
             self.multi_line = False
             return prompt(u"", multiline=True, **self.prompt_args)
 
-        example_style = style_from_dict({
-            Token.Prompt: "#ansi{}".format(self.prompt_colour),
-            Token.TxCounter: "#ansi{} bold".format(self.tx_colour),
-        })
-
         def get_prompt_tokens(_):
             tokens = []
             if self.tx is None:
@@ -196,7 +196,7 @@ class Console(object):
                 tokens.append((Token.Prompt, ")-> "))
             return tokens
 
-        return prompt(get_prompt_tokens=get_prompt_tokens, style=example_style, **self.prompt_args)
+        return prompt(get_prompt_tokens=get_prompt_tokens, **self.prompt_args)
 
     def run_cypher(self, context, statement, parameters):
         t0 = timer()
