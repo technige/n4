@@ -57,7 +57,7 @@ def repl(statement, uri, user, password, insecure, verbose):
         else:
             exit_status = console.loop()
     except ConsoleError as e:
-        click.secho(e.args[0], err=True, fg="yellow")
+        click.secho(e.args[0], err=True)
         exit_status = 1
     exit(exit_status)
 
