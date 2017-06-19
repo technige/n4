@@ -16,23 +16,27 @@
 # limitations under the License.
 
 
+from os.path import dirname, join as path_join
 try:
     from setuptools import setup, find_packages
 except ImportError:
     from distutils.core import setup, find_packages
 
-from n4.meta import __version__, description, full_help
+from n4.meta import __version__, description
 
+
+with open(path_join(dirname(__file__), "README.rst")) as f:
+    long_description = f.read()
 
 packages = find_packages(exclude=("test",))
 package_metadata = {
     "name": "n4",
     "version": __version__,
     "description": description,
-    "long_description": full_help.replace("\b\n", ""),
+    "long_description": long_description,
     "author": "Nigel Small <technige@nige.tech>",
     "author_email": "n4@nige.tech",
-    "url": None,
+    "url": "http://nige.tech/n4",
     "entry_points": {
         "console_scripts": [
             "n4 = n4.__main__:repl",
