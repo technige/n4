@@ -25,13 +25,13 @@ from timeit import default_timer as timer
 from textwrap import dedent
 
 import click
+from cypy.lex import CypherLexer
 from neo4j.v1 import GraphDatabase, ServiceUnavailable, CypherError, TransactionError
 from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.layout.lexers import PygmentsLexer
 from prompt_toolkit.styles import style_from_pygments
-from pygments.lexers.graph import CypherLexer
-from pygments.styles.default import DefaultStyle
+from pygments.styles.vim import VimStyle
 from pygments.token import Token
 
 from n4.table import Table
@@ -62,7 +62,7 @@ class Console(object):
         self.prompt_args = {
             "history": self.history,
             "lexer": PygmentsLexer(CypherLexer),
-            "style": style_from_pygments(DefaultStyle, {
+            "style": style_from_pygments(VimStyle, {
                 Token.Prompt: "#ansi{}".format(self.prompt_colour),
                 Token.TxCounter: "#ansi{} bold".format(self.tx_colour),
             })
