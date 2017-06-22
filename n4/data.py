@@ -19,8 +19,8 @@
 import sys
 
 import click
+from cypy.encoding import cypher_repr, cypher_str
 
-from .cypher import cypher_repr, cypher_str
 from .table import Table
 
 
