@@ -31,6 +31,7 @@ from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.layout.lexers import PygmentsLexer
 from prompt_toolkit.styles import style_from_pygments
+from pygments import lex
 from pygments.styles.vim import VimStyle
 from pygments.token import Token
 
@@ -67,6 +68,7 @@ class Console(object):
                 Token.TxCounter: "#ansi{} bold".format(self.tx_colour),
             })
         }
+        self.lexer = CypherLexer()
         self.result_writer = TabularResultWriter()
         if verbose:
             from .watcher import watch
@@ -102,34 +104,41 @@ class Console(object):
         click.echo(dedent(quick_help), err=True)
         while True:
             try:
-                source = self.read().strip()
+                source = self.read()
             except KeyboardInterrupt:
                 continue
             except EOFError:
                 return 0
-            try:
-                self.run(source)
-            except ServiceUnavailable:
-                return 1
+            if source.lstrip().startswith("/"):
+                self.run_command(source)
+            else:
+                try:
+                    for statement in self.lexer.get_statements(source):
+                        self.run(statement)
+                except ServiceUnavailable:
+                    return 1
 
     def run(self, source):
+        source = source.strip()
+        if not source:
+            return
         try:
-            if not source:
-                pass
-            elif source.startswith("/"):
+            if source.startswith("/"):
                 self.run_command(source)
-            elif source.upper() == "BEGIN":
-                self.begin_transaction()
-            elif source.upper() == "COMMIT":
-                self.commit_transaction()
-            elif source.upper() == "ROLLBACK":
-                self.rollback_transaction()
-            elif self.tx is None:
-                with self.driver.session() as session:
-                    self.run_cypher(session, source, {})
             else:
-                self.run_cypher(self.tx, source, {})
-                self.tx_counter += 1
+                for statement in self.lexer.get_statements(source):
+                    if statement.upper() == "BEGIN":
+                        self.begin_transaction()
+                    elif statement.upper() == "COMMIT":
+                        self.commit_transaction()
+                    elif statement.upper() == "ROLLBACK":
+                        self.rollback_transaction()
+                    elif self.tx is None:
+                        with self.driver.session() as session:
+                            self.run_cypher(session.run, statement, {})
+                    else:
+                        self.run_cypher(self.tx.run, statement, {})
+                        self.tx_counter += 1
         except CypherError as error:
             if error.classification == "ClientError":
                 pass
@@ -198,27 +207,29 @@ class Console(object):
 
         return prompt(get_prompt_tokens=get_prompt_tokens, **self.prompt_args)
 
-    def run_cypher(self, context, statement, parameters):
+    def run_cypher(self, runner, statement, parameters):
         t0 = timer()
-        result = context.run(statement, parameters)
-        total = 0
+        result = runner(statement, parameters)
+        record_count = self.write_result(result)
+        click.secho(u"({} record{} from {} in {:.3f}s)".format(
+            record_count,
+            "" if record_count == 1 else "s",
+            address_str(result.summary().server.address),
+            timer() - t0,
+        ), err=True, fg=self.meta_colour, bold=True)
+
+    def write_result(self, result, page_size=50):
+        record_count = 0
         if result.keys():
             self.result_writer.write_header(result)
             more = True
             while more:
-                total += self.result_writer.write(result, 50)
+                record_count += self.result_writer.write(result, page_size)
                 more = result.peek() is not None
-        summary = result.summary()
-        t1 = timer() - t0
-        if len(summary.server.address) == 4:  # IPv6
-            server_address = "[{}]:{}".format(*summary.server.address)
-        else:                                 # IPv4
-            server_address = "{}:{}".format(*summary.server.address)
-        click.secho(u"({} record{} from {} in {:.3f}s)".format(
-            total, "" if total == 1 else "s", server_address, t1),
-            err=True, fg=self.meta_colour, bold=True)
+        return record_count
 
     def run_command(self, source):
+        source = source.lstrip()
         assert source
         terms = shlex.split(source)
         command_name = terms[0]
@@ -292,3 +303,10 @@ class Console(object):
 class ConsoleError(Exception):
 
     pass
+
+
+def address_str(address):
+    if len(address) == 4:  # IPv6
+        return "[{}]:{}".format(*address)
+    else:  # IPv4
+        return "{}:{}".format(*address)
