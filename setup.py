@@ -51,7 +51,7 @@ package_metadata = {
         "neo4j-driver>=1.3.1",
         "prompt_toolkit",
         "pygments>=2.0",
-        "technige.cypy==1.0.0a5",
+        "technige.cypy==1.0.0b1",
     ],
     "license": "Apache License, Version 2.0",
     "classifiers": [

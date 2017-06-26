@@ -31,7 +31,6 @@ from prompt_toolkit import prompt
 from prompt_toolkit.history import FileHistory
 from prompt_toolkit.layout.lexers import PygmentsLexer
 from prompt_toolkit.styles import style_from_pygments
-from pygments import lex
 from pygments.styles.vim import VimStyle
 from pygments.token import Token
 
@@ -85,6 +84,11 @@ class Console(object):
             "/x": self.exit,
             "/exit": self.exit,
 
+            "/r": self.run_read_tx,
+            "/read": self.run_read_tx,
+            "/w": self.run_write_tx,
+            "/write": self.run_write_tx,
+
             "/csv": self.set_csv_result_writer,
             "/table": self.set_tabular_result_writer,
             "/tsv": self.set_tsv_result_writer,
@@ -137,7 +141,7 @@ class Console(object):
                         with self.driver.session() as session:
                             self.run_cypher(session.run, statement, {})
                     else:
-                        self.run_cypher(self.tx.run, statement, {})
+                        self.run_cypher(self.tx.run, statement, {}, line_no=self.tx_counter)
                         self.tx_counter += 1
         except CypherError as error:
             if error.classification == "ClientError":
@@ -152,43 +156,43 @@ class Console(object):
         except TransactionError:
             click.secho("Transaction error", err=True, fg=self.err_colour)
 
-    def rollback_transaction(self):
-        if self.session:
-            try:
-                self.session.rollback_transaction()
-                click.secho(u"(Transaction ROLLBACK at {})".format(datetime.now()),
-                            err=True, fg=self.tx_colour, bold=True)
-            finally:
-                self.tx = None
-                self.tx_counter = 0
-                self.session.close()
-                self.session = None
-        else:
-            click.secho(u"No current transaction", err=True, fg=self.err_colour)
-
-    def commit_transaction(self):
-        if self.session:
-            try:
-                self.session.commit_transaction()
-                click.secho(u"(Transaction COMMIT at {})".format(datetime.now()),
-                            err=True, fg=self.tx_colour, bold=True)
-            finally:
-                self.tx = None
-                self.tx_counter = 0
-                self.session.close()
-                self.session = None
-        else:
-            click.secho(u"No current transaction", err=True, fg=self.err_colour)
-
     def begin_transaction(self):
         if self.tx is None:
             self.session = self.driver.session()
             self.tx = self.session.begin_transaction()
             self.tx_counter = 1
-            click.secho(u"(Transaction BEGIN at {})".format(datetime.now()),
+            click.secho(u"--- BEGIN at {} ---".format(datetime.now()),
                         err=True, fg=self.tx_colour, bold=True)
         else:
             click.secho(u"Transaction already open", err=True, fg=self.err_colour)
+
+    def commit_transaction(self):
+        if self.session:
+            try:
+                self.session.commit_transaction()
+                click.secho(u"--- COMMIT at {} ---".format(datetime.now()),
+                            err=True, fg=self.tx_colour, bold=True)
+            finally:
+                self.tx = None
+                self.tx_counter = 0
+                self.session.close()
+                self.session = None
+        else:
+            click.secho(u"No current transaction", err=True, fg=self.err_colour)
+
+    def rollback_transaction(self):
+        if self.session:
+            try:
+                self.session.rollback_transaction()
+                click.secho(u"--- ROLLBACK at {} ---".format(datetime.now()),
+                            err=True, fg=self.tx_colour, bold=True)
+            finally:
+                self.tx = None
+                self.tx_counter = 0
+                self.session.close()
+                self.session = None
+        else:
+            click.secho(u"No current transaction", err=True, fg=self.err_colour)
 
     def read(self):
         if self.multi_line:
@@ -207,16 +211,22 @@ class Console(object):
 
         return prompt(get_prompt_tokens=get_prompt_tokens, **self.prompt_args)
 
-    def run_cypher(self, runner, statement, parameters):
+    def run_cypher(self, runner, statement, parameters, line_no=0):
         t0 = timer()
         result = runner(statement, parameters)
         record_count = self.write_result(result)
-        click.secho(u"({} record{} from {} in {:.3f}s)".format(
+        status = u"{} record{} from {} in {:.3f}s".format(
             record_count,
             "" if record_count == 1 else "s",
             address_str(result.summary().server.address),
             timer() - t0,
-        ), err=True, fg=self.meta_colour, bold=True)
+        )
+        if line_no:
+            click.secho(u"(", err=True, fg=self.meta_colour, bold=True, nl=False)
+            click.secho(u"{}".format(line_no), err=True, fg=self.tx_colour, bold=True, nl=False)
+            click.secho(u")->({})".format(status), err=True, fg=self.meta_colour, bold=True)
+        else:
+            click.secho(u"({})".format(status), err=True, fg=self.meta_colour, bold=True)
 
     def write_result(self, result, page_size=50):
         record_count = 0
@@ -238,11 +248,18 @@ class Console(object):
         except KeyError:
             click.secho("Unknown command: " + command_name, err=True, fg=self.err_colour)
         else:
+            args = []
             kwargs = {}
             for term in terms[1:]:
-                key, _, value = term.partition("=")
-                kwargs[key] = value
-            command(**kwargs)
+                if "=" in term:
+                    key, _, value = term.partition("=")
+                    kwargs[key] = value
+                else:
+                    args.append(term)
+            try:
+                command(*args, **kwargs)
+            except Exception as error:
+                click.secho("{}: {}".format(error.__class__.__name__, str(error)), err=True, fg=self.err_colour)
 
     def set_multi_line(self, **kwargs):
         self.multi_line = True
@@ -256,6 +273,32 @@ class Console(object):
     @classmethod
     def exit(cls, **kwargs):
         exit(0)
+
+    def load_unit_of_work(self, file_name):
+        """ Load a transaction function from a cypher source file.
+        """
+        with open(expanduser(file_name)) as f:
+            source = f.read()
+
+        def unit_of_work(tx):
+            for line_no, statement in enumerate(self.lexer.get_statements(source), start=1):
+                self.run_cypher(tx.run, statement, {}, line_no=line_no)
+
+        return unit_of_work
+
+    def run_read_tx(self, *args, **kwargs):
+        if args:
+            with self.driver.session() as session:
+                session.read_transaction(self.load_unit_of_work(args[0]))
+        else:
+            click.secho("Usage: /r FILE", err=True, fg=self.err_colour)
+
+    def run_write_tx(self, *args, **kwargs):
+        if args:
+            with self.driver.session() as session:
+                session.write_transaction(self.load_unit_of_work(args[0]))
+        else:
+            click.secho("Usage: /w FILE", err=True, fg=self.err_colour)
 
     def set_csv_result_writer(self, **kwargs):
         self.result_writer = CSVResultWriter()
