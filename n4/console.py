@@ -18,6 +18,7 @@
 
 from __future__ import division, print_function
 
+from collections import deque
 from datetime import datetime
 import shlex
 from os.path import expanduser
@@ -25,6 +26,7 @@ from timeit import default_timer as timer
 from textwrap import dedent
 
 import click
+from cypy.encoding import cypher_repr, cypher_escape
 from cypy.lex import CypherLexer
 from neo4j.v1 import GraphDatabase, ServiceUnavailable, CypherError, TransactionError
 from prompt_toolkit import prompt
@@ -68,11 +70,8 @@ class Console(object):
             })
         }
         self.lexer = CypherLexer()
+        self.parameter_queue = deque()
         self.result_writer = TabularResultWriter()
-        if verbose:
-            from .watcher import watch
-            self.watcher = watch("neo4j.bolt")
-
         self.commands = {
 
             "//": self.set_multi_line,
@@ -83,6 +82,11 @@ class Console(object):
 
             "/x": self.exit,
             "/exit": self.exit,
+
+            "/params": self.parameters,
+            "/push": self.push_parameters,
+            "/pull": self.pull_parameters,
+            "/pop": self.pop_parameters,
 
             "/r": self.run_read_tx,
             "/read": self.run_read_tx,
@@ -100,6 +104,9 @@ class Console(object):
         self.session = None
         self.tx = None
         self.tx_counter = 0
+        if verbose:
+            from .watcher import watch
+            self.watcher = watch("neo4j.bolt")
 
     def loop(self):
         click.echo(title, err=True)
@@ -122,6 +129,26 @@ class Console(object):
                 except ServiceUnavailable:
                     return 1
 
+    def parameters(self, *args, **kwargs):
+        for parameters in self.parameter_queue:
+            click.echo(u" ".join(u"{}={}".format(cypher_escape(key), cypher_repr(value))
+                                 for key, value in parameters.items()))
+
+    def push_parameters(self, *args, **kwargs):
+        self.parameter_queue.append(kwargs)
+
+    def pull_parameters(self, *args, **kwargs):
+        try:
+            return self.parameter_queue.popleft()
+        except IndexError:
+            return {}
+
+    def pop_parameters(self, *args, **kwargs):
+        try:
+            return self.parameter_queue.pop()
+        except IndexError:
+            return {}
+
     def run(self, source):
         source = source.strip()
         if not source:
@@ -139,9 +166,9 @@ class Console(object):
                         self.rollback_transaction()
                     elif self.tx is None:
                         with self.driver.session() as session:
-                            self.run_cypher(session.run, statement, {})
+                            self.run_cypher(session.run, statement, self.pull_parameters())
                     else:
-                        self.run_cypher(self.tx.run, statement, {}, line_no=self.tx_counter)
+                        self.run_cypher(self.tx.run, statement, self.pull_parameters(), line_no=self.tx_counter)
                         self.tx_counter += 1
         except CypherError as error:
             if error.classification == "ClientError":
@@ -261,17 +288,17 @@ class Console(object):
             except Exception as error:
                 click.secho("{}: {}".format(error.__class__.__name__, str(error)), err=True, fg=self.err_colour)
 
-    def set_multi_line(self, **kwargs):
+    def set_multi_line(self, *args, **kwargs):
         self.multi_line = True
 
     @classmethod
-    def help(cls, **kwargs):
+    def help(cls, *args, **kwargs):
         click.echo(description, err=True)
         click.echo(err=True)
         click.echo(full_help.replace("\b\n", ""), err=True)
 
     @classmethod
-    def exit(cls, **kwargs):
+    def exit(cls, *args, **kwargs):
         exit(0)
 
     def load_unit_of_work(self, file_name):
@@ -282,7 +309,7 @@ class Console(object):
 
         def unit_of_work(tx):
             for line_no, statement in enumerate(self.lexer.get_statements(source), start=1):
-                self.run_cypher(tx.run, statement, {}, line_no=line_no)
+                self.run_cypher(tx.run, statement, self.pull_parameters(), line_no=line_no)
 
         return unit_of_work
 
@@ -300,16 +327,16 @@ class Console(object):
         else:
             click.secho("Usage: /w FILE", err=True, fg=self.err_colour)
 
-    def set_csv_result_writer(self, **kwargs):
+    def set_csv_result_writer(self, *args, **kwargs):
         self.result_writer = CSVResultWriter()
 
-    def set_tabular_result_writer(self, **kwargs):
+    def set_tabular_result_writer(self, *args, **kwargs):
         self.result_writer = TabularResultWriter()
 
-    def set_tsv_result_writer(self, **kwargs):
+    def set_tsv_result_writer(self, *args, **kwargs):
         self.result_writer = TSVResultWriter()
 
-    def config(self, **kwargs):
+    def config(self, *args, **kwargs):
         with self.driver.session() as session:
             result = session.run("CALL dbms.listConfig")
             table = None
@@ -326,7 +353,7 @@ class Console(object):
                 last_category = category
             table.echo(header_style={"fg": self.meta_colour})
 
-    def kernel(self, **kwargs):
+    def kernel(self, *args, **kwargs):
         with self.driver.session() as session:
             result = session.run("CALL dbms.queryJmx", {"query": "org.neo4j:instance=kernel#0,name=Kernel"})
             table = Table(["key", "value"], field_separator=u" = ", padding=0, auto_align=False, header=0)
