@@ -30,20 +30,21 @@ quick_help = """\
   /x  to exit\
 """
 full_help = """\
-If command line arguments are provided, these are executed in order as statements.
-If no arguments are provided, an interactive console is presented.
+If command line arguments are provided, these are executed in order as
+statements. If no arguments are provided, an interactive console is
+presented.
 
-Statements entered at the interactive prompt or as arguments can be regular Cypher,
-transaction control keywords or slash commands.
-Multiple Cypher statements can be entered on the same line separated by semicolons.
+Statements entered at the interactive prompt or as arguments can be
+regular Cypher, transaction control keywords or slash commands. Multiple
+Cypher statements can be entered on the same line separated by semicolons.
 These will be executed within a single transaction.
 
 For a handy Cypher reference, see:
 
   https://neo4j.com/docs/cypher-refcard/current/
 
-Transactions can be managed interactively.
-To do this, use the transaction control keywords BEGIN, COMMIT and ROLLBACK.
+Transactions can be managed interactively. To do this, use the transaction
+control keywords BEGIN, COMMIT and ROLLBACK.
 
 Slash commands provide access to supplementary functionality.
 
