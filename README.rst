@@ -95,7 +95,7 @@ Synopsis
 
 Options
 -------
-- ``-password`` ``TEXT``     Pass the password instead of prompting for it.
+- ``--password`` ``TEXT``     Pass the password instead of prompting for it.
 - ``--help``                 Show this message and exit.
 
 Description
