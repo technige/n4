@@ -21,7 +21,7 @@ For the latest, bleeding edge code (possibly unstable), use::
     pip install git+https://github.com/technige/n4.git
 
 
-This installs an ``n4`` executable onto your path along with a supplementary auth management tool, ``n4a``.
+This installs an ``n4`` executable onto your path along with a supplementary auth management tool, ``n4auth``.
 
 
 Executable: ``n4``
@@ -81,17 +81,17 @@ Information commands
 - ``/kernel`` show Neo4j kernel information
 
 
-Executable: ``n4a``
-===================
+Executable: ``n4auth``
+======================
 
 Synopsis
 --------
 ::
 
-    n4a add [OPTIONS] AUTH_FILE USER_NAME
-    n4a list [OPTIONS] AUTH_FILE
-    n4a remove [OPTIONS] AUTH_FILE USER_NAME
-    n4a update [OPTIONS] AUTH_FILE USER_NAME
+    n4auth add [OPTIONS] AUTH_FILE USER_NAME
+    n4auth list [OPTIONS] AUTH_FILE
+    n4auth remove [OPTIONS] AUTH_FILE USER_NAME
+    n4auth update [OPTIONS] AUTH_FILE USER_NAME
 
 Options
 -------
@@ -101,6 +101,6 @@ Options
 Description
 -----------
 
-Note that unlike ``n4``, ``n4a`` operates directly on the server file system and not remotely.
+Note that unlike ``n4``, ``n4auth`` operates directly on the server file system and not remotely.
 
 *TODO*
