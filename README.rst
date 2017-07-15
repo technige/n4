@@ -4,6 +4,9 @@ N4
 
 N4 is a Cypher runner and interactive console for Neo4j.
 
+.. image:: art/screenshot.png
+   :alt: N4 Cypher console for Neo4j
+
 
 Installation
 ============
