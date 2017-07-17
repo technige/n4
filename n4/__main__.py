@@ -51,8 +51,13 @@ def repl(statement, uri, user, password, insecure, verbose):
     try:
         console = Console(uri, auth=(user, password), secure=not insecure, verbose=verbose)
         if statement:
+            gap = False
             for s in statement:
+                if gap:
+                    click.echo(u"")
                 console.run(s)
+                if not s.startswith("/"):
+                    gap = True
             exit_status = 0
         else:
             exit_status = console.loop()

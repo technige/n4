@@ -117,8 +117,7 @@ class Console(object):
                 self.run_command(source)
             else:
                 try:
-                    for statement in self.lexer.get_statements(source):
-                        self.run(statement)
+                    self.run(source)
                 except ServiceUnavailable:
                     return 1
 
@@ -130,7 +129,9 @@ class Console(object):
             if source.startswith("/"):
                 self.run_command(source)
             else:
-                for statement in self.lexer.get_statements(source):
+                for i, statement in enumerate(self.lexer.get_statements(source)):
+                    if i > 0:
+                        click.echo(u"")
                     if statement.upper() == "BEGIN":
                         self.begin_transaction()
                     elif statement.upper() == "COMMIT":
@@ -282,6 +283,8 @@ class Console(object):
 
         def unit_of_work(tx):
             for line_no, statement in enumerate(self.lexer.get_statements(source), start=1):
+                if line_no > 0:
+                    click.echo(u"")
                 self.run_cypher(tx.run, statement, {}, line_no=line_no)
 
         return unit_of_work
