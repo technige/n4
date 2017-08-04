@@ -49,8 +49,8 @@ class Console(object):
 
     tx_colour = "yellow"
     err_colour = "reset"
-    meta_colour = "blue"
-    prompt_colour = "blue"
+    meta_colour = "cyan"
+    prompt_colour = "cyan"
 
     def __init__(self, uri, auth, secure=True, verbose=False):
         try:
@@ -63,8 +63,8 @@ class Console(object):
             "history": self.history,
             "lexer": PygmentsLexer(CypherLexer),
             "style": style_from_pygments(VimStyle, {
-                Token.Prompt: "#ansi{}".format(self.prompt_colour),
-                Token.TxCounter: "#ansi{} bold".format(self.tx_colour),
+                Token.Prompt: "#ansi{}".format(self.prompt_colour.replace("cyan", "teal")),
+                Token.TxCounter: "#ansi{} bold".format(self.tx_colour.replace("cyan", "teal")),
             })
         }
         self.lexer = CypherLexer()

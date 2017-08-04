@@ -29,7 +29,7 @@ class ColourFormatter(logging.Formatter):
 
     def format(self, record):
         s = super(ColourFormatter, self).format(record)
-        return "\x1b[34m%s\x1b[0m" % s    # blue
+        return "\x1b[36m%s\x1b[0m" % s
 
 
 class Watcher(object):

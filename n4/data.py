@@ -69,7 +69,7 @@ class TabularResultWriter(ResultWriter):
             table.append(record.values())
             if count == limit:
                 break
-        table.echo(header_style={"fg": "blue", "bold": True})
+        table.echo(header_style={"fg": "cyan", "bold": True})
         click.echo()
         return table.size()
 
@@ -77,7 +77,7 @@ class TabularResultWriter(ResultWriter):
 class CSVResultWriter(ResultWriter):
 
     def write_header(self, result):
-        click.secho(u",".join(result.keys()), nl=False, fg="blue", bold=True)
+        click.secho(u",".join(result.keys()), nl=False, fg="cyan", bold=True)
         click.echo(u"\r\n", nl=False)
 
     def write(self, result, limit):
@@ -111,7 +111,7 @@ class CSVResultWriter(ResultWriter):
 class TSVResultWriter(ResultWriter):
 
     def write_header(self, result):
-        click.secho(u"\t".join(result.keys()), nl=False, fg="blue", bold=True)
+        click.secho(u"\t".join(result.keys()), nl=False, fg="cyan", bold=True)
         click.echo(u"\r\n", nl=False)
 
     def write(self, result, limit):
