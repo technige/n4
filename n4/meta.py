@@ -19,13 +19,14 @@
 from os.path import expanduser
 
 
-__version__ = "1.2.2"
+__version__ = "1.3.0"
 
 title = "N4 v{}".format(__version__)
 description = "N4 is a Cypher runner and interactive console for Neo4j."
 history_file = expanduser("~/.n4_history")
 quick_help = """\
   //  to enter multi-line mode (press [Alt]+[Enter] to run)
+  /e  to launch external editor
   /?  for help
   /x  to exit\
 """

@@ -64,6 +64,7 @@ control keywords ``BEGIN``, ``COMMIT`` and ``ROLLBACK``.
 Slash commands provide access to supplementary functionality.
 
 - ``//``      to enter multiline mode (press ``[Esc][Enter]`` to run)
+- ``/e``      to launch external editor
 - ``/?``      for help
 - ``/x``      to exit
 

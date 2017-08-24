@@ -20,7 +20,10 @@ from __future__ import division, print_function
 
 from datetime import datetime
 import shlex
+import os
 from os.path import expanduser
+from subprocess import call
+from tempfile import NamedTemporaryFile
 from timeit import default_timer as timer
 from textwrap import dedent
 
@@ -39,6 +42,7 @@ from .data import TabularResultWriter, CSVResultWriter, TSVResultWriter
 from .meta import title, description, quick_help, full_help
 
 
+EDITOR = os.environ.get("EDITOR", "vim")
 HISTORY_FILE = expanduser("~/.n4_history")
 
 
@@ -76,6 +80,7 @@ class Console(object):
         self.commands = {
 
             "//": self.set_multi_line,
+            "/e": self.edit,
 
             "/?": self.help,
             "/h": self.help,
@@ -264,6 +269,17 @@ class Console(object):
 
     def set_multi_line(self, **kwargs):
         self.multi_line = True
+
+    def edit(self, **kwargs):
+        initial_message = b""
+        with NamedTemporaryFile(suffix=".cypher") as f:
+            f.write(initial_message)
+            f.flush()
+            call([EDITOR, f.name])
+            f.seek(0)
+            source = f.read().decode("utf-8")
+            click.echo(source)
+            self.run(source)
 
     @classmethod
     def help(cls, **kwargs):
