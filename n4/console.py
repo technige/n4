@@ -118,13 +118,10 @@ class Console(object):
                 continue
             except EOFError:
                 return 0
-            if source.lstrip().startswith("/"):
-                self.run_command(source)
-            else:
-                try:
-                    self.run(source)
-                except ServiceUnavailable:
-                    return 1
+            try:
+                self.run(source)
+            except ServiceUnavailable:
+                return 1
 
     def run(self, source):
         source = source.strip()
@@ -132,23 +129,12 @@ class Console(object):
             return
         try:
             if source.startswith("/"):
-                self.run_command(source)
+                try:
+                    self.run_command(source)
+                except TypeError:
+                    self.run_source(source)
             else:
-                for i, statement in enumerate(self.lexer.get_statements(source)):
-                    if i > 0:
-                        click.echo(u"")
-                    if statement.upper() == "BEGIN":
-                        self.begin_transaction()
-                    elif statement.upper() == "COMMIT":
-                        self.commit_transaction()
-                    elif statement.upper() == "ROLLBACK":
-                        self.rollback_transaction()
-                    elif self.tx is None:
-                        with self.driver.session() as session:
-                            self.run_cypher(session.run, statement, {})
-                    else:
-                        self.run_cypher(self.tx.run, statement, {}, line_no=self.tx_counter)
-                        self.tx_counter += 1
+                self.run_source(source)
         except CypherError as error:
             if error.classification == "ClientError":
                 pass
@@ -161,6 +147,10 @@ class Console(object):
             click.secho("{}: {}".format(error.title, error.message), err=True)
         except TransactionError:
             click.secho("Transaction error", err=True, fg=self.err_colour)
+        except ServiceUnavailable:
+            raise
+        except Exception as error:
+            click.secho("{}: {}".format(error.__class__.__name__, str(error)), err=True, fg=self.err_colour)
 
     def begin_transaction(self):
         if self.tx is None:
@@ -217,6 +207,23 @@ class Console(object):
 
         return prompt(get_prompt_tokens=get_prompt_tokens, **self.prompt_args)
 
+    def run_source(self, source):
+        for i, statement in enumerate(self.lexer.get_statements(source)):
+            if i > 0:
+                click.echo(u"")
+            if statement.upper() == "BEGIN":
+                self.begin_transaction()
+            elif statement.upper() == "COMMIT":
+                self.commit_transaction()
+            elif statement.upper() == "ROLLBACK":
+                self.rollback_transaction()
+            elif self.tx is None:
+                with self.driver.session() as session:
+                    self.run_cypher(session.run, statement, {})
+            else:
+                self.run_cypher(self.tx.run, statement, {}, line_no=self.tx_counter)
+                self.tx_counter += 1
+
     def run_cypher(self, runner, statement, parameters, line_no=0):
         t0 = timer()
         result = runner(statement, parameters)
@@ -252,6 +259,8 @@ class Console(object):
         try:
             command = self.commands[command_name]
         except KeyError:
+            if terms[0].startswith("//"):
+                raise TypeError("Comment not command")
             click.secho("Unknown command: " + command_name, err=True, fg=self.err_colour)
         else:
             args = []
@@ -262,10 +271,7 @@ class Console(object):
                     kwargs[key] = value
                 else:
                     args.append(term)
-            try:
-                command(*args, **kwargs)
-            except Exception as error:
-                click.secho("{}: {}".format(error.__class__.__name__, str(error)), err=True, fg=self.err_colour)
+            command(*args, **kwargs)
 
     def set_multi_line(self, **kwargs):
         self.multi_line = True

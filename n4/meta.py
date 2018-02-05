@@ -19,7 +19,7 @@
 from os.path import expanduser
 
 
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 
 title = "N4 v{}".format(__version__)
 description = "N4 is a Cypher runner and interactive console for Neo4j."
